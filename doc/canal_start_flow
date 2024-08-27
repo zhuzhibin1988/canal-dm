@@ -1,0 +1,6 @@
+deployer
+    server
+        CanalServerWithEmbedded
+            CanalInstanceGenerator -> 默认实现是mysql的instance，需要实现dameng的instance
+                parser -> 默认实现是mysql binlog的解析器，需要实现dameng logmnr的解释器
+                driver -> 默认实现是mysql的driver，需要实现dameng的driver

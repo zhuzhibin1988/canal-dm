@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.eshore.otter</groupId>
+    <artifactId>canal-dm</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+
+    <modules>
+        <module>server</module>
+        <module>instance</module>
+        <module>driver</module>
+        <module>dbsync</module>
+        <module>parse</module>
+        <module>deployer</module>
+        <module>debezium-dm</module>
+    </modules>
+
+    <properties>
+        <canal.version>1.1.7</canal.version>
+        <junit.version>4.13.2</junit.version>
+        <java.source.version>1.8</java.source.version>
+        <java.target.version>1.8</java.target.version>
+        <file.encoding>UTF-8</file.encoding>
+        <maven-compiler-plugin.version>3.7.0</maven-compiler-plugin.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!--归档日志解析-->
+            <dependency>
+                <groupId>com.alibaba.otter</groupId>
+                <artifactId>canal.parse</artifactId>
+                <version>${canal.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.alibaba.otter</groupId>
+                <artifactId>canal.parse.driver</artifactId>
+                <version>${canal.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.alibaba.otter</groupId>
+                <artifactId>canal.parse.dbsync</artifactId>
+                <version>${canal.version}</version>
+            </dependency>
+
+            <!--归档日志读取实例-->
+            <dependency>
+                <groupId>com.alibaba.otter</groupId>
+                <artifactId>canal.instance.core</artifactId>
+                <version>${canal.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.alibaba.otter</groupId>
+                <artifactId>canal.instance.manager</artifactId>
+                <version>${canal.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.alibaba.otter</groupId>
+                <artifactId>canal.instance.spring</artifactId>
+                <version>${canal.version}</version>
+            </dependency>
+
+            <!--canal服务-->
+            <dependency>
+                <groupId>com.alibaba.otter</groupId>
+                <artifactId>canal.server</artifactId>
+                <version>${canal.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.alibaba.otter</groupId>
+                <artifactId>canal.deployer</artifactId>
+                <version>${canal.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>junit</groupId>
+                <artifactId>junit</artifactId>
+                <version>${junit.version}</version>
+                <scope>test</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven-compiler-plugin.version}</version>
+                <configuration>
+                    <source>${java.source.version}</source>
+                    <target>${java.target.version}</target>
+                    <encoding>${file.encoding}</encoding>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
