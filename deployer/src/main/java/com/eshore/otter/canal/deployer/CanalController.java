@@ -42,8 +42,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static com.eshore.otter.canal.deployer.CanalConstants.CANAL_DESTINATIONS;
-import static com.eshore.otter.canal.deployer.CanalConstants.CANAL_DESTINATIONS_EXPR;
+import static com.alibaba.otter.canal.deployer.CanalConstants.CANAL_DESTINATIONS;
+import static com.alibaba.otter.canal.deployer.CanalConstants.CANAL_DESTINATIONS_EXPR;
 
 /**
  * canal调度控制器
@@ -51,7 +51,7 @@ import static com.eshore.otter.canal.deployer.CanalConstants.CANAL_DESTINATIONS_
  * @author jianghang 2012-11-8 下午12:03:11
  * @version 1.0.0
  */
-public class CanalController {
+public class CanalController extends com.alibaba.otter.canal.deployer.CanalController {
 
     private static final Logger logger = LoggerFactory.getLogger(CanalController.class);
     private String ip;

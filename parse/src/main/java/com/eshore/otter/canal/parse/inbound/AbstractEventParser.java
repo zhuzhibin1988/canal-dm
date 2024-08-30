@@ -7,6 +7,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
+import com.alibaba.otter.canal.parse.support.AuthenticationInfo;
 import com.eshore.otter.canal.parse.inbound.mysql.MysqlMultiStageCoprocessor;
 import com.eshore.otter.canal.parse.index.CanalLogPositionManager;
 import org.apache.commons.lang.StringUtils;
@@ -21,10 +22,10 @@ import com.alibaba.otter.canal.common.alarm.CanalAlarmHandler;
 import com.alibaba.otter.canal.filter.CanalEventFilter;
 import com.eshore.otter.canal.parse.CanalEventParser;
 import com.alibaba.otter.canal.parse.driver.mysql.packets.GTIDSet;
-import com.eshore.otter.canal.parse.exception.CanalParseException;
-import com.eshore.otter.canal.parse.exception.PositionNotFoundException;
+import com.alibaba.otter.canal.parse.exception.CanalParseException;
+import com.alibaba.otter.canal.parse.exception.PositionNotFoundException;
 import com.eshore.otter.canal.parse.inbound.mysql.MysqlConnection;
-import com.eshore.otter.canal.parse.support.AuthenticationInfo;
+import com.alibaba.otter.canal.parse.support.AuthenticationInfo;
 import com.alibaba.otter.canal.protocol.CanalEntry;
 import com.alibaba.otter.canal.protocol.CanalEntry.Entry;
 import com.alibaba.otter.canal.protocol.CanalEntry.EntryType;
@@ -68,7 +69,7 @@ public abstract class AbstractEventParser<EVENT> extends AbstractCanalLifeCycle 
     protected long                                   processingInterval         = -1;
 
     // 认证信息
-    protected volatile AuthenticationInfo            runningInfo;
+    protected volatile AuthenticationInfo runningInfo;
     protected String                                 destination;
 
     // binLogParser

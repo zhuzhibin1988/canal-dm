@@ -1,24 +1,23 @@
-package com.eshore.otter.canal.parse.inbound.mysql;
-
-import java.nio.charset.Charset;
-import java.util.concurrent.atomic.AtomicLong;
+package com.eshore.otter.canal.parse.inbound.dameng;
 
 import com.alibaba.otter.canal.filter.CanalEventFilter;
 import com.alibaba.otter.canal.filter.aviater.AviaterRegexFilter;
 import com.alibaba.otter.canal.parse.exception.CanalParseException;
+import com.alibaba.otter.canal.protocol.position.EntryPosition;
 import com.eshore.otter.canal.parse.CanalEventParser;
-import com.eshore.otter.canal.parse.exception.CanalParseException;
 import com.eshore.otter.canal.parse.inbound.AbstractEventParser;
 import com.eshore.otter.canal.parse.inbound.BinlogParser;
 import com.eshore.otter.canal.parse.inbound.MultiStageCoprocessor;
-import com.eshore.otter.canal.parse.inbound.mysql.dbsync.LogEventConvert;
-import com.eshore.otter.canal.parse.inbound.mysql.tsdb.DatabaseTableMeta;
-import com.eshore.otter.canal.parse.inbound.mysql.tsdb.DefaultTableMetaTSDBFactory;
-import com.eshore.otter.canal.parse.inbound.mysql.tsdb.TableMetaTSDB;
-import com.eshore.otter.canal.parse.inbound.mysql.tsdb.TableMetaTSDBFactory;
-import com.alibaba.otter.canal.protocol.position.EntryPosition;
+import com.eshore.otter.canal.parse.inbound.dameng.dbsync.LogEventConvert;
+import com.eshore.otter.canal.parse.inbound.dameng.tsdb.DatabaseTableMeta;
+import com.eshore.otter.canal.parse.inbound.dameng.tsdb.DefaultTableMetaTSDBFactory;
+import com.eshore.otter.canal.parse.inbound.dameng.tsdb.TableMetaTSDB;
+import com.eshore.otter.canal.parse.inbound.dameng.tsdb.TableMetaTSDBFactory;
 
-public abstract class AbstractMysqlEventParser extends AbstractEventParser {
+import java.nio.charset.Charset;
+import java.util.concurrent.atomic.AtomicLong;
+
+public abstract class AbstractDamengEventParser extends AbstractEventParser {
 
     protected static final long    BINLOG_START_OFFEST       = 4L;
 
@@ -193,7 +192,7 @@ public abstract class AbstractMysqlEventParser extends AbstractEventParser {
     }
 
     protected MultiStageCoprocessor buildMultiStageCoprocessor() {
-        MysqlMultiStageCoprocessor mysqlMultiStageCoprocessor = new MysqlMultiStageCoprocessor(parallelBufferSize,
+        DamengMultiStageCoprocessor mysqlMultiStageCoprocessor = new DamengMultiStageCoprocessor(parallelBufferSize,
             parallelThreadSize,
             (LogEventConvert) binlogParser,
             transactionBuffer,

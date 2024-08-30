@@ -3,7 +3,7 @@ package com.eshore.otter.canal.parse.index;
 import java.util.Map;
 import java.util.Set;
 
-import com.eshore.otter.canal.parse.exception.CanalParseException;
+import com.alibaba.otter.canal.parse.exception.CanalParseException;
 import com.alibaba.otter.canal.protocol.position.LogPosition;
 import com.google.common.collect.MapMaker;
 

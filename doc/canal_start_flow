@@ -1,6 +1,11 @@
 deployer
     server
-        CanalServerWithEmbedded
-            CanalInstanceGenerator -> 默认实现是mysql的instance，需要实现dameng的instance
-                parser -> 默认实现是mysql binlog的解析器，需要实现dameng logmnr的解释器
-                driver -> 默认实现是mysql的driver，需要实现dameng的driver
+        CanalServerWithEmbedded(dm) -> 用netty容器加载CanalServer, 重写服务的订阅，退订，get操作（Dameng归档日志的状态的读取，读取归档日志），ack操作（响应Dameng归档日志）
+            CanalInstanceGenerator(dm) -> 默认实现是mysql的instance，需要实现dameng的instance
+                ManagerCanalInstanceGenerator(dm):AbstractCanalInstance
+                    DamengEventParser(dm):AbstractEventParser
+                        dbsync -> 默认实现是mysql binlog事件的解析器， 解析日志协议，输出日志事件，Dameng实现redo sql的解析
+                        driver -> 默认实现是mysql的driver，完成和mysql服务器的读写通信，接受binlog的数据包，解析读取binlog的数据包， Dameng实现数据读取日志
+                        parse  -> 调用dbsync,driver查询日志事件，结论日志文件，位置偏移
+                                  核心类：DamengConnect
+                                         DamengEventParser

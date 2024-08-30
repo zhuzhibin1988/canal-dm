@@ -203,7 +203,7 @@
 		<property name="multiStreamEnable" value="${canal.instance.multi.stream.on:false}"/>
 	</bean>
 
-	<bean id="mqConfig" class="com.eshore.otter.canal.instance.core.CanalMQConfig">
+	<bean id="mqConfig" class="com.alibaba.otter.canal.instance.core.CanalMQConfig">
 		<property name="topic" value="${canal.mq.topic}" />
 		<property name="dynamicTopic" value="${canal.mq.dynamicTopic}" />
 		<property name="partition" value="${canal.mq.partition}" />
