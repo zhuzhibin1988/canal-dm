@@ -6,18 +6,27 @@
         <artifactId>canal.instance</artifactId>
         <version>1.0.0</version>
     </parent>
-    
+
     <artifactId>canal.instance.manager</artifactId>
 
     <dependencies>
         <dependency>
             <groupId>com.alibaba.otter</groupId>
-            <artifactId>canal.instance.core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.alibaba.otter</groupId>
             <artifactId>canal.instance.spring</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>com.eshore.otter</groupId>
+            <artifactId>canal.instance.core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.eshore.otter</groupId>
+            <artifactId>canal.parse</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- junit -->
         <dependency>
             <groupId>junit</groupId>

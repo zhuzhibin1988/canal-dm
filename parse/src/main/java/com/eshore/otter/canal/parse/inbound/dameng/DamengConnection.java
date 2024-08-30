@@ -29,9 +29,6 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.alibaba.otter.canal.parse.driver.mysql.utils.GtidUtil.parseGtidSet;
-import static com.eshore.otter.canal.parse.inbound.mysql.dbsync.DirectLogFetcher.MASTER_HEARTBEAT_PERIOD_SECONDS;
-
 public class DamengConnection implements ErosaConnection {
 
     private static final Logger logger = LoggerFactory.getLogger(DamengConnection.class);
@@ -73,7 +70,7 @@ public class DamengConnection implements ErosaConnection {
     }
 
     public ResultSetPacket query(String cmd) throws IOException {
-        MysqlQueryExecutor exector = new MysqlQueryExecutor(connector);
+        DamengRedoLogExecutor exector = new DamengRedoLogExecutor(connector);
         return exector.query(cmd);
     }
 

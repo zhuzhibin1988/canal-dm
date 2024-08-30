@@ -2,6 +2,7 @@ package com.eshore.dbsync.logmnr;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 /**
@@ -41,12 +42,9 @@ public abstract class LogFetcher implements Closeable {
      */
     public static final float DEFAULT_GROWTH_FACTOR = 2.0f;
 
-    /**
-     * Binlog file header size
-     */
-    public static final int BIN_LOG_HEADER_SIZE = 4;
-
     protected final float factor;
+
+    protected final List<RedoLog> buffer;
 
     public LogFetcher() {
         this(DEFAULT_INITIAL_CAPACITY, DEFAULT_GROWTH_FACTOR);
@@ -57,7 +55,7 @@ public abstract class LogFetcher implements Closeable {
     }
 
     public LogFetcher(final int initialCapacity, final float growthFactor) {
-        this.buffer = new byte[initialCapacity];
+        this.buffer = new ArrayList<RedoLog>(initialCapacity);
         this.factor = growthFactor;
     }
 

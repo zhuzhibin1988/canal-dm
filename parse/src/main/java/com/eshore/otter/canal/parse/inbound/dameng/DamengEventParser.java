@@ -6,6 +6,8 @@ import com.alibaba.otter.canal.parse.CanalHASwitchable;
 import com.alibaba.otter.canal.parse.driver.mysql.packets.server.FieldPacket;
 import com.alibaba.otter.canal.parse.driver.mysql.packets.server.ResultSetPacket;
 import com.alibaba.otter.canal.parse.exception.CanalParseException;
+import com.alibaba.otter.canal.parse.ha.CanalHAController;
+import com.alibaba.otter.canal.parse.support.AuthenticationInfo;
 import com.alibaba.otter.canal.protocol.CanalEntry;
 import com.alibaba.otter.canal.protocol.position.EntryPosition;
 import com.alibaba.otter.canal.protocol.position.LogPosition;
@@ -58,11 +60,10 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
     // binlog信息
     protected EntryPosition      masterPosition;
     protected EntryPosition      standbyPosition;
-    private long                 slaveId;                                      // 链接到mysql的slave
     // 心跳检查信息
     private String               detectingSQL;                                 // 心跳sql
-    private DamengConnection metaConnection;                               // 查询meta信息的链接
-    private TableMetaCache tableMetaCache;                               // 对应meta
+    private DamengConnection     metaConnection;                               // 查询meta信息的链接
+    private TableMetaCache       tableMetaCache;                               // 对应meta
     private int                  fallbackIntervalInSeconds         = 60;       // 切换回退时间
     private BinlogFormat[]       supportBinlogFormats;                         // 支持的binlogFormat,如果设置会执行强校验
     private BinlogImage[]        supportBinlogImages;                          // 支持的binlogImage,如果设置会执行强校验
@@ -85,7 +86,7 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
             throw new CanalParseException("Unsupported connection type : " + connection.getClass().getSimpleName());
         }
 
-        if (binlogParser != null && binlogParser instanceof LogEventConvert) {
+        if (binlogParser != null && RedoLogParser instanceof LogEventConvert) {
             metaConnection = (DamengConnection) connection.fork();
             try {
                 metaConnection.connect();

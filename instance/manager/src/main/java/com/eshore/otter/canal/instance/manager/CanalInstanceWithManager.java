@@ -21,7 +21,7 @@ import com.alibaba.otter.canal.common.alarm.LogAlarmHandler;
 import com.alibaba.otter.canal.common.utils.JsonUtils;
 import com.alibaba.otter.canal.common.zookeeper.ZkClientx;
 import com.alibaba.otter.canal.filter.aviater.AviaterRegexFilter;
-import com.alibaba.otter.canal.instance.core.AbstractCanalInstance;
+
 import com.alibaba.otter.canal.instance.manager.model.Canal;
 import com.alibaba.otter.canal.instance.manager.model.CanalParameter;
 import com.alibaba.otter.canal.instance.manager.model.CanalParameter.*;
@@ -34,9 +34,6 @@ import com.alibaba.otter.canal.parse.ha.CanalHAController;
 import com.alibaba.otter.canal.parse.ha.HeartBeatHAController;
 import com.alibaba.otter.canal.parse.inbound.AbstractEventParser;
 import com.alibaba.otter.canal.parse.inbound.group.GroupEventParser;
-import com.alibaba.otter.canal.parse.inbound.mysql.LocalBinlogEventParser;
-import com.alibaba.otter.canal.parse.inbound.mysql.MysqlEventParser;
-import com.alibaba.otter.canal.parse.inbound.mysql.rds.RdsBinlogEventParserProxy;
 import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.DefaultTableMetaTSDBFactory;
 import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.TableMetaTSDB;
 import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.TableMetaTSDBBuilder;
@@ -49,6 +46,8 @@ import com.alibaba.otter.canal.store.AbstractCanalStoreScavenge;
 import com.alibaba.otter.canal.store.memory.MemoryEventStoreWithBuffer;
 import com.alibaba.otter.canal.store.model.BatchMode;
 
+import com.eshore.otter.canal.instance.core.AbstractCanalInstance;
+import com.eshore.otter.canal.parse.inbound.dameng.DamengEventParser;
 /**
  * 单个canal实例，比如一个destination会独立一个实例
  *
@@ -242,41 +241,30 @@ public class CanalInstanceWithManager extends com.alibaba.otter.canal.instance.m
 
     private CanalEventParser doInitEventParser(SourcingType type, List<InetSocketAddress> dbAddresses) {
         CanalEventParser eventParser;
-        if (type.isMysql()) {
-            MysqlEventParser mysqlEventParser = null;
-            if (StringUtils.isNotEmpty(parameters.getRdsAccesskey())
-                    && StringUtils.isNotEmpty(parameters.getRdsSecretkey())
-                    && StringUtils.isNotEmpty(parameters.getRdsInstanceId())) {
-
-                mysqlEventParser = new RdsBinlogEventParserProxy();
-                ((RdsBinlogEventParserProxy) mysqlEventParser).setAccesskey(parameters.getRdsAccesskey());
-                ((RdsBinlogEventParserProxy) mysqlEventParser).setSecretkey(parameters.getRdsSecretkey());
-                ((RdsBinlogEventParserProxy) mysqlEventParser).setInstanceId(parameters.getRdsInstanceId());
-            } else {
-                mysqlEventParser = new MysqlEventParser();
-            }
-            mysqlEventParser.setDestination(destination);
+        if (type.isDm()) {
+            DamengEventParser damengEventParser = new DamengEventParser();
+            damengEventParser.setDestination(destination);
             // 编码参数
-            mysqlEventParser.setConnectionCharset(parameters.getConnectionCharset());
-            mysqlEventParser.setConnectionCharsetNumber(parameters.getConnectionCharsetNumber());
+            damengEventParser.setConnectionCharset(parameters.getConnectionCharset());
+            damengEventParser.setConnectionCharsetNumber(parameters.getConnectionCharsetNumber());
             // 网络相关参数
-            mysqlEventParser.setDefaultConnectionTimeoutInSeconds(parameters.getDefaultConnectionTimeoutInSeconds());
-            mysqlEventParser.setSendBufferSize(parameters.getSendBufferSize());
-            mysqlEventParser.setReceiveBufferSize(parameters.getReceiveBufferSize());
+            damengEventParser.setDefaultConnectionTimeoutInSeconds(parameters.getDefaultConnectionTimeoutInSeconds());
+            damengEventParser.setSendBufferSize(parameters.getSendBufferSize());
+            damengEventParser.setReceiveBufferSize(parameters.getReceiveBufferSize());
             // 心跳检查参数
-            mysqlEventParser.setDetectingEnable(parameters.getDetectingEnable());
-            mysqlEventParser.setDetectingSQL(parameters.getDetectingSQL());
-            mysqlEventParser.setDetectingIntervalInSeconds(parameters.getDetectingIntervalInSeconds());
+            damengEventParser.setDetectingEnable(parameters.getDetectingEnable());
+            damengEventParser.setDetectingSQL(parameters.getDetectingSQL());
+            damengEventParser.setDetectingIntervalInSeconds(parameters.getDetectingIntervalInSeconds());
             // 数据库信息参数
-            mysqlEventParser.setSlaveId(parameters.getSlaveId());
+            damengEventParser.setSlaveId(parameters.getSlaveId());
             if (!CollectionUtils.isEmpty(dbAddresses)) {
-                mysqlEventParser.setMasterInfo(new AuthenticationInfo(dbAddresses.get(0),
+                damengEventParser.setMasterInfo(new AuthenticationInfo(dbAddresses.get(0),
                         parameters.getDbUsername(),
                         parameters.getDbPassword(),
                         parameters.getDefaultDatabaseName()));
 
                 if (dbAddresses.size() > 1) {
-                    mysqlEventParser.setStandbyInfo(new AuthenticationInfo(dbAddresses.get(1),
+                    damengEventParser.setStandbyInfo(new AuthenticationInfo(dbAddresses.get(1),
                             parameters.getDbUsername(),
                             parameters.getDbPassword(),
                             parameters.getDefaultDatabaseName()));
@@ -287,32 +275,32 @@ public class CanalInstanceWithManager extends com.alibaba.otter.canal.instance.m
                 EntryPosition masterPosition = JsonUtils.unmarshalFromString(parameters.getPositions().get(0),
                         EntryPosition.class);
                 // binlog位置参数
-                mysqlEventParser.setMasterPosition(masterPosition);
+                damengEventParser.setMasterPosition(masterPosition);
 
                 if (parameters.getPositions().size() > 1) {
                     EntryPosition standbyPosition = JsonUtils.unmarshalFromString(parameters.getPositions().get(1),
                             EntryPosition.class);
-                    mysqlEventParser.setStandbyPosition(standbyPosition);
+                    damengEventParser.setStandbyPosition(standbyPosition);
                 }
             }
-            mysqlEventParser.setFallbackIntervalInSeconds(parameters.getFallbackIntervalInSeconds());
-            mysqlEventParser.setProfilingEnabled(false);
-            mysqlEventParser.setFilterTableError(parameters.getFilterTableError());
-            mysqlEventParser.setParallel(parameters.getParallel());
-            mysqlEventParser.setIsGTIDMode(BooleanUtils.toBoolean(parameters.getGtidEnable()));
-            mysqlEventParser.setMultiStreamEnable(parameters.getMultiStreamEnable());
+            damengEventParser.setFallbackIntervalInSeconds(parameters.getFallbackIntervalInSeconds());
+            damengEventParser.setProfilingEnabled(false);
+            damengEventParser.setFilterTableError(parameters.getFilterTableError());
+            damengEventParser.setParallel(parameters.getParallel());
+            damengEventParser.setIsGTIDMode(BooleanUtils.toBoolean(parameters.getGtidEnable()));
+            damengEventParser.setMultiStreamEnable(parameters.getMultiStreamEnable());
             // tsdb
             if (parameters.getTsdbSnapshotInterval() != null) {
-                mysqlEventParser.setTsdbSnapshotInterval(parameters.getTsdbSnapshotInterval());
+                damengEventParser.setTsdbSnapshotInterval(parameters.getTsdbSnapshotInterval());
             }
             if (parameters.getTsdbSnapshotExpire() != null) {
-                mysqlEventParser.setTsdbSnapshotExpire(parameters.getTsdbSnapshotExpire());
+                damengEventParser.setTsdbSnapshotExpire(parameters.getTsdbSnapshotExpire());
             }
             boolean tsdbEnable = BooleanUtils.toBoolean(parameters.getTsdbEnable());
             // manager启动模式默认使用mysql tsdb机制
             final String tsdbSpringXml = "classpath:spring/tsdb/mysql-tsdb.xml";
             if (tsdbEnable) {
-                mysqlEventParser.setTableMetaTSDBFactory(new DefaultTableMetaTSDBFactory() {
+                damengEventParser.setTableMetaTSDBFactory(new DefaultTableMetaTSDBFactory() {
 
                     @Override
                     public void destory(String destination) {
@@ -339,38 +327,13 @@ public class CanalInstanceWithManager extends com.alibaba.otter.canal.instance.m
                         }
                     }
                 });
-                mysqlEventParser.setTsdbJdbcUrl(parameters.getTsdbJdbcUrl());
-                mysqlEventParser.setTsdbJdbcUserName(parameters.getTsdbJdbcUserName());
-                mysqlEventParser.setTsdbJdbcPassword(parameters.getTsdbJdbcPassword());
-                mysqlEventParser.setTsdbSpringXml(tsdbSpringXml);
-                mysqlEventParser.setEnableTsdb(tsdbEnable);
+                damengEventParser.setTsdbJdbcUrl(parameters.getTsdbJdbcUrl());
+                damengEventParser.setTsdbJdbcUserName(parameters.getTsdbJdbcUserName());
+                damengEventParser.setTsdbJdbcPassword(parameters.getTsdbJdbcPassword());
+                damengEventParser.setTsdbSpringXml(tsdbSpringXml);
+                damengEventParser.setEnableTsdb(tsdbEnable);
             }
-            eventParser = mysqlEventParser;
-        } else if (type.isLocalBinlog()) {
-            LocalBinlogEventParser localBinlogEventParser = new LocalBinlogEventParser();
-            localBinlogEventParser.setDestination(destination);
-            localBinlogEventParser.setBufferSize(parameters.getReceiveBufferSize());
-            localBinlogEventParser.setConnectionCharset(parameters.getConnectionCharset());
-            localBinlogEventParser.setConnectionCharsetNumber(parameters.getConnectionCharsetNumber());
-            localBinlogEventParser.setDirectory(parameters.getLocalBinlogDirectory());
-            localBinlogEventParser.setProfilingEnabled(false);
-            localBinlogEventParser.setDetectingEnable(parameters.getDetectingEnable());
-            localBinlogEventParser.setDetectingIntervalInSeconds(parameters.getDetectingIntervalInSeconds());
-            localBinlogEventParser.setFilterTableError(parameters.getFilterTableError());
-            localBinlogEventParser.setParallel(parameters.getParallel());
-            // 数据库信息，反查表结构时需要
-            if (!CollectionUtils.isEmpty(dbAddresses)) {
-                localBinlogEventParser.setMasterInfo(new AuthenticationInfo(dbAddresses.get(0),
-                        parameters.getDbUsername(),
-                        parameters.getDbPassword(),
-                        parameters.getDefaultDatabaseName()));
-            }
-
-            eventParser = localBinlogEventParser;
-        } else if (type.isOracle()) {
-            throw new CanalException("unsupport SourcingType for " + type);
-        } else {
-            throw new CanalException("unsupport SourcingType for " + type);
+            eventParser = damengEventParser;
         }
 
         // add transaction support at 2012-12-06
@@ -392,12 +355,11 @@ public class CanalInstanceWithManager extends com.alibaba.otter.canal.instance.m
                 abstractEventParser.setEventBlackFilter(aviaterFilter);
             }
         }
-        if (eventParser instanceof MysqlEventParser) {
-            MysqlEventParser mysqlEventParser = (MysqlEventParser) eventParser;
-
+        if (eventParser instanceof DamengEventParser) {
+            DamengEventParser damengEventParser = (DamengEventParser) eventParser;
             // 初始化haController，绑定与eventParser的关系，haController会控制eventParser
             CanalHAController haController = initHaController();
-            mysqlEventParser.setHaController(haController);
+            damengEventParser.setHaController(haController);
         }
         return eventParser;
     }

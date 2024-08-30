@@ -491,20 +491,20 @@ public class CanalServerWithEmbedded extends com.alibaba.otter.canal.server.embe
 
     // ========= setter ==========
 
-//    public void setCanalInstanceGenerator(CanalInstanceGenerator canalInstanceGenerator) {
-//        this.canalInstanceGenerator = canalInstanceGenerator;
-//    }
-//
-//    public void setMetricsPort(int metricsPort) {
-//        this.metricsPort = metricsPort;
-//    }
-//
-//    public void setUser(String user) {
-//        this.user = user;
-//    }
-//
-//    public void setPasswd(String passwd) {
-//        this.passwd = passwd;
-//    }
+    public void setCanalInstanceGenerator(CanalInstanceGenerator canalInstanceGenerator) {
+        this.canalInstanceGenerator = canalInstanceGenerator;
+    }
+
+    public void setMetricsPort(int metricsPort) {
+        this.metricsPort = metricsPort;
+    }
+
+    public void setUser(String user) {
+        this.user = user;
+    }
+
+    public void setPasswd(String passwd) {
+        this.passwd = passwd;
+    }
 
 }

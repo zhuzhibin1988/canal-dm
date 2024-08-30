@@ -39,14 +39,6 @@ public class DamengRedoLogExecutor {
         return ps.executeQuery();
     }
 
-    public List<RedoLog> queryLogmnrContents(Scn startScn, Scn endScn) throws SQLException {
-        String sql = SqlUtils.logMinerContentsQuery("");
-        PreparedStatement mineView = this.connector.connection().prepareStatement(sql);
-        mineView.setString(1, startScn.toString());
-        mineView.setString(2, endScn.toString());
-        return mineView.executeQuery();
-    }
-
     public void addLogFile(LogFile logFile) throws SQLException {
         String sql = SqlUtils.addLogFileStatement("DBMS_LOGMNR.ADDFILE", logFile.getFileName());
         connector.connection().createStatement().execute(sql);

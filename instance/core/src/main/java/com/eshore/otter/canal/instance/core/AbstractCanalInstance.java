@@ -32,15 +32,15 @@ public class AbstractCanalInstance extends AbstractCanalLifeCycle implements Can
 
     private static final Logger logger = LoggerFactory.getLogger(AbstractCanalInstance.class);
 
-    protected Long canalId;                                                      // 和manager交互唯一标示
-    protected String destination;                                                  // 队列名字
-    protected CanalEventStore<Event> eventStore;                                                   // 有序队列
+    protected Long canalId;                                                    // 和manager交互唯一标示
+    protected String destination;                                              // 队列名字
+    protected CanalEventStore<Event> eventStore;                               // 有序队列
 
-    protected CanalEventParser eventParser;                                                  // 解析对应的数据信息
-    protected CanalEventSink<List<CanalEntry.Entry>> eventSink;                                                    // 链接parse和store的桥接器
-    protected CanalMetaManager metaManager;                                                  // 消费信息管理器
-    protected CanalAlarmHandler alarmHandler;                                                 // alarm报警机制
-    protected CanalMQConfig mqConfig;                                                     // mq的配置
+    protected CanalEventParser eventParser;                                    // 解析对应的数据信息
+    protected CanalEventSink<List<CanalEntry.Entry>> eventSink;                // 链接parse和store的桥接器
+    protected CanalMetaManager metaManager;                                    // 消费信息管理器
+    protected CanalAlarmHandler alarmHandler;                                  // alarm报警机制
+    protected CanalMQConfig mqConfig;                                          // mq的配置
 
 
     @Override

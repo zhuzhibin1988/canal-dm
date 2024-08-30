@@ -1,6 +1,5 @@
 package com.eshore.otter.canal.deployer;
 
-
 import java.util.Properties;
 
 import com.eshore.otter.canal.deployer.CanalController;

@@ -3,50 +3,52 @@ package com.eshore.otter.canal.parse.inbound.dameng;
 import com.alibaba.otter.canal.filter.CanalEventFilter;
 import com.alibaba.otter.canal.filter.aviater.AviaterRegexFilter;
 import com.alibaba.otter.canal.parse.exception.CanalParseException;
+import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.TableMetaTSDBFactory;
 import com.alibaba.otter.canal.protocol.position.EntryPosition;
-import com.eshore.otter.canal.parse.CanalEventParser;
+import com.alibaba.otter.canal.parse.CanalEventParser;
+import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.DatabaseTableMeta;
+import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.DefaultTableMetaTSDBFactory;
+import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.TableMetaTSDB;
+import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.TableMetaTSDBFactory;
+
 import com.eshore.otter.canal.parse.inbound.AbstractEventParser;
 import com.eshore.otter.canal.parse.inbound.RedoLogParser;
 import com.eshore.otter.canal.parse.inbound.MultiStageCoprocessor;
 import com.eshore.otter.canal.parse.inbound.dameng.dbsync.LogEventConvert;
-import com.eshore.otter.canal.parse.inbound.dameng.tsdb.DatabaseTableMeta;
-import com.eshore.otter.canal.parse.inbound.dameng.tsdb.DefaultTableMetaTSDBFactory;
-import com.eshore.otter.canal.parse.inbound.dameng.tsdb.TableMetaTSDB;
-import com.eshore.otter.canal.parse.inbound.dameng.tsdb.TableMetaTSDBFactory;
 
 import java.nio.charset.Charset;
 import java.util.concurrent.atomic.AtomicLong;
 
 public abstract class AbstractDamengEventParser extends AbstractEventParser {
 
-    protected static final long    BINLOG_START_OFFEST       = 4L;
+    protected static final long BINLOG_START_OFFEST = 4L;
 
-    protected TableMetaTSDBFactory tableMetaTSDBFactory      = new DefaultTableMetaTSDBFactory();
-    protected boolean              enableTsdb                = false;
-    protected String               tsdbJdbcUrl;
-    protected String               tsdbJdbcUserName;
-    protected String               tsdbJdbcPassword;
-    protected int                  tsdbSnapshotInterval      = 24;
-    protected int                  tsdbSnapshotExpire        = 360;
-    protected String               tsdbSpringXml;
+    protected TableMetaTSDBFactory tableMetaTSDBFactory = new DefaultTableMetaTSDBFactory();
+    protected boolean enableTsdb = false;
+    protected String tsdbJdbcUrl;
+    protected String tsdbJdbcUserName;
+    protected String tsdbJdbcPassword;
+    protected int tsdbSnapshotInterval = 24;
+    protected int tsdbSnapshotExpire = 360;
+    protected String tsdbSpringXml;
     protected TableMetaTSDB tableMetaTSDB;
 
     // 编码信息
-    protected byte                 connectionCharsetNumber   = (byte) 33;
-    protected Charset              connectionCharset         = Charset.forName("UTF-8");
-    protected boolean              filterQueryDcl            = false;
-    protected boolean              filterQueryDml            = false;
-    protected boolean              filterQueryDdl            = false;
-    protected boolean              filterRows                = false;
-    protected boolean              filterTableError          = false;
-    protected boolean              useDruidDdlFilter         = true;
+    protected byte connectionCharsetNumber = (byte) 33;
+    protected Charset connectionCharset = Charset.forName("UTF-8");
+    protected boolean filterQueryDcl = false;
+    protected boolean filterQueryDml = false;
+    protected boolean filterQueryDdl = false;
+    protected boolean filterRows = false;
+    protected boolean filterTableError = false;
+    protected boolean useDruidDdlFilter = true;
 
-    protected boolean              filterDmlInsert           = false;
-    protected boolean              filterDmlUpdate           = false;
-    protected boolean              filterDmlDelete           = false;
+    protected boolean filterDmlInsert = false;
+    protected boolean filterDmlUpdate = false;
+    protected boolean filterDmlDelete = false;
     // instance received binlog bytes
-    protected final AtomicLong     receivedBinlogBytes       = new AtomicLong(0L);
-    private final AtomicLong       eventsPublishBlockingTime = new AtomicLong(0L);
+    protected final AtomicLong receivedBinlogBytes = new AtomicLong(0L);
+    private final AtomicLong eventsPublishBlockingTime = new AtomicLong(0L);
 
     protected RedoLogParser buildParser() {
         LogEventConvert convert = new LogEventConvert();
@@ -76,8 +78,8 @@ public abstract class AbstractDamengEventParser extends AbstractEventParser {
 
         // 触发一下filter变更
         if (eventFilter != null && eventFilter instanceof AviaterRegexFilter) {
-            if (binlogParser instanceof LogEventConvert) {
-                ((LogEventConvert) binlogParser).setNameFilter((AviaterRegexFilter) eventFilter);
+            if (redoLogParser instanceof LogEventConvert) {
+                ((LogEventConvert) redoLogParser).setNameFilter((AviaterRegexFilter) eventFilter);
             }
 
             if (tableMetaTSDB != null && tableMetaTSDB instanceof DatabaseTableMeta) {
@@ -91,8 +93,8 @@ public abstract class AbstractDamengEventParser extends AbstractEventParser {
 
         // 触发一下filter变更
         if (eventBlackFilter != null && eventBlackFilter instanceof AviaterRegexFilter) {
-            if (binlogParser instanceof LogEventConvert) {
-                ((LogEventConvert) binlogParser).setNameBlackFilter((AviaterRegexFilter) eventBlackFilter);
+            if (redoLogParser instanceof LogEventConvert) {
+                ((LogEventConvert) redoLogParser).setNameBlackFilter((AviaterRegexFilter) eventBlackFilter);
             }
 
             if (tableMetaTSDB != null && tableMetaTSDB instanceof DatabaseTableMeta) {
@@ -106,8 +108,8 @@ public abstract class AbstractDamengEventParser extends AbstractEventParser {
         super.setFieldFilter(fieldFilter);
 
         // 触发一下filter变更
-        if (binlogParser instanceof LogEventConvert) {
-            ((LogEventConvert) binlogParser).setFieldFilterMap(getFieldFilterMap());
+        if (redoLogParser instanceof LogEventConvert) {
+            ((LogEventConvert) redoLogParser).setFieldFilterMap(getFieldFilterMap());
         }
 
         if (tableMetaTSDB != null && tableMetaTSDB instanceof DatabaseTableMeta) {
@@ -120,8 +122,8 @@ public abstract class AbstractDamengEventParser extends AbstractEventParser {
         super.setFieldBlackFilter(fieldBlackFilter);
 
         // 触发一下filter变更
-        if (binlogParser instanceof LogEventConvert) {
-            ((LogEventConvert) binlogParser).setFieldBlackFilterMap(getFieldBlackFilterMap());
+        if (redoLogParser instanceof LogEventConvert) {
+            ((LogEventConvert) redoLogParser).setFieldBlackFilterMap(getFieldBlackFilterMap());
         }
 
         if (tableMetaTSDB != null && tableMetaTSDB instanceof DatabaseTableMeta) {
@@ -131,7 +133,7 @@ public abstract class AbstractDamengEventParser extends AbstractEventParser {
 
     /**
      * 回滚到指定位点
-     * 
+     *
      * @param position
      * @return
      */
@@ -181,7 +183,7 @@ public abstract class AbstractDamengEventParser extends AbstractEventParser {
             // 初始化
             this.tableMetaTSDB = tableMetaTSDBFactory.build(destination, tsdbSpringXml);
         } catch (Throwable e) {
-            logger.warn("failed to build TableMetaTSDB ",e);
+            logger.warn("failed to build TableMetaTSDB ", e);
             throw new CanalParseException(e);
         } finally {
             // reset
@@ -192,13 +194,13 @@ public abstract class AbstractDamengEventParser extends AbstractEventParser {
     }
 
     protected MultiStageCoprocessor buildMultiStageCoprocessor() {
-        DamengMultiStageCoprocessor mysqlMultiStageCoprocessor = new DamengMultiStageCoprocessor(parallelBufferSize,
-            parallelThreadSize,
-            (LogEventConvert) binlogParser,
-            transactionBuffer,
-            destination, filterDmlInsert, filterDmlUpdate, filterDmlDelete);
-        mysqlMultiStageCoprocessor.setEventsPublishBlockingTime(eventsPublishBlockingTime);
-        return mysqlMultiStageCoprocessor;
+        DamengMultiStageCoprocessor damengMultiStageCoprocessor = new DamengMultiStageCoprocessor(parallelBufferSize,
+                parallelThreadSize,
+                (LogEventConvert) redoLogParser,
+                transactionBuffer,
+                destination, filterDmlInsert, filterDmlUpdate, filterDmlDelete);
+        damengMultiStageCoprocessor.setEventsPublishBlockingTime(eventsPublishBlockingTime);
+        return damengMultiStageCoprocessor;
     }
 
     // ============================ setter / getter =========================

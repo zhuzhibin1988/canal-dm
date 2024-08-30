@@ -14,13 +14,18 @@ import com.alibaba.otter.canal.deployer.monitor.InstanceConfigMonitor;
 import com.alibaba.otter.canal.deployer.monitor.ManagerInstanceConfigMonitor;
 import com.alibaba.otter.canal.deployer.monitor.SpringInstanceConfigMonitor;
 import com.alibaba.otter.canal.instance.core.CanalInstanceGenerator;
-import com.alibaba.otter.canal.instance.manager.PlainCanalInstanceGenerator;
-import com.alibaba.otter.canal.instance.manager.plain.PlainCanalConfigClient;
 import com.alibaba.otter.canal.instance.spring.SpringCanalInstanceGenerator;
+import com.alibaba.otter.canal.instance.manager.plain.PlainCanalConfigClient;
+
 import com.alibaba.otter.canal.server.CanalMQStarter;
 import com.alibaba.otter.canal.server.embedded.CanalServerWithEmbedded;
 import com.alibaba.otter.canal.server.exception.CanalServerException;
 import com.alibaba.otter.canal.server.netty.CanalServerWithNetty;
+
+
+import com.eshore.otter.canal.instance.manager.PlainCanalInstanceGenerator;
+
+
 import com.google.common.base.Function;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.MigrateMap;
@@ -376,6 +381,7 @@ public class CanalController extends com.alibaba.otter.canal.deployer.CanalContr
             }
 
             if (config.getMode().isManager()) {
+                /*调用达梦的canal instance生成器*/
                 PlainCanalInstanceGenerator instanceGenerator = new PlainCanalInstanceGenerator(properties);
                 instanceGenerator.setCanalConfigClient(managerClients.get(config.getManagerAddress()));
                 instanceGenerator.setSpringXml(config.getSpringXml());

@@ -172,7 +172,7 @@ public class SqlUtils {
      * @param logMinerUser    log mining session user name
      * @return the query
      */
-    static String logMinerContentsQuery( String logMinerUser) {
+    public static String logMinerContentsQuery(String logMinerUser) {
         StringBuilder query = new StringBuilder();
         query.append("SELECT SCN, SQL_REDO, OPERATION_CODE, TIMESTAMP, XID, CSF, TABLE_NAME, SEG_OWNER, OPERATION, USERNAME, ROW_ID, ROLLBACK ");
         query.append("FROM ").append(LOGMNR_CONTENTS_VIEW).append(" ");
