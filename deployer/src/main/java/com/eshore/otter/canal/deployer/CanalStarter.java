@@ -1,19 +1,25 @@
 package com.eshore.otter.canal.deployer;
 
-import com.alibaba.otter.canal.connector.core.spi.ProxyCanalMQProducer;
 
 import java.util.Properties;
 
-import com.alibaba.otter.canal.connector.core.config.MQProperties;
+import com.eshore.otter.canal.deployer.CanalController;
 import com.eshore.otter.canal.deployer.admin.CanalAdminController;
+
+import com.alibaba.otter.canal.admin.netty.CanalAdminWithNetty;
+import com.alibaba.otter.canal.connector.core.config.MQProperties;
+import com.alibaba.otter.canal.connector.core.spi.CanalMQProducer;
+import com.alibaba.otter.canal.connector.core.spi.ExtensionLoader;
+import com.alibaba.otter.canal.connector.core.spi.ProxyCanalMQProducer;
+import com.alibaba.otter.canal.deployer.CanalConstants;
+import com.alibaba.otter.canal.deployer.CanalLauncher;
+
+import com.alibaba.otter.canal.server.CanalMQStarter;
 import org.apache.commons.lang.StringUtils;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.alibaba.otter.canal.admin.netty.CanalAdminWithNetty;
-import com.alibaba.otter.canal.connector.core.spi.CanalMQProducer;
-import com.alibaba.otter.canal.connector.core.spi.ExtensionLoader;
-import com.alibaba.otter.canal.server.CanalMQStarter;
 
 /**
  * Canal server 启动类
@@ -53,7 +59,7 @@ public class CanalStarter {
         this.properties = properties;
     }
 
-    public CanalController getController() {
+    public com.alibaba.otter.canal.deployer.CanalController getController() {
         return controller;
     }
 
@@ -63,7 +69,7 @@ public class CanalStarter {
      * @throws Throwable
      */
     public synchronized void start() throws Throwable {
-        String serverMode = CanalController.getProperty(properties, CanalConstants.CANAL_SERVER_MODE);
+        String serverMode = com.alibaba.otter.canal.deployer.CanalController.getProperty(properties, com.alibaba.otter.canal.deployer.CanalConstants.CANAL_SERVER_MODE);
         if (!"tcp".equalsIgnoreCase(serverMode)) {
             ExtensionLoader<CanalMQProducer> loader = ExtensionLoader.getExtensionLoader(CanalMQProducer.class);
             canalMQProducer = loader
@@ -77,7 +83,7 @@ public class CanalStarter {
         if (canalMQProducer != null) {
             MQProperties mqProperties = canalMQProducer.getMqProperties();
             // disable netty
-            System.setProperty(CanalConstants.CANAL_WITHOUT_NETTY, "true");
+            System.setProperty(com.alibaba.otter.canal.deployer.CanalConstants.CANAL_WITHOUT_NETTY, "true");
             if (mqProperties.isFlatMessage()) {
                 // 设置为raw避免ByteString->Entry的二次解析
                 System.setProperty("canal.instance.memory.rawEntry", "false");
@@ -103,16 +109,16 @@ public class CanalStarter {
 
         if (canalMQProducer != null) {
             canalMQStarter = new CanalMQStarter(canalMQProducer);
-            String destinations = CanalController.getDestinations(properties);
+            String destinations = com.alibaba.otter.canal.deployer.CanalController.getDestinations(properties);
             canalMQStarter.start(destinations);
             controller.setCanalMQStarter(canalMQStarter);
         }
 
         // start canalAdmin
-        String port = CanalController.getProperty(properties, CanalConstants.CANAL_ADMIN_PORT);
+        String port = com.alibaba.otter.canal.deployer.CanalController.getProperty(properties, com.alibaba.otter.canal.deployer.CanalConstants.CANAL_ADMIN_PORT);
         if (canalAdmin == null && StringUtils.isNotEmpty(port)) {
-            String user = CanalController.getProperty(properties, CanalConstants.CANAL_ADMIN_USER);
-            String passwd = CanalController.getProperty(properties, CanalConstants.CANAL_ADMIN_PASSWD);
+            String user = com.alibaba.otter.canal.deployer.CanalController.getProperty(properties, com.alibaba.otter.canal.deployer.CanalConstants.CANAL_ADMIN_USER);
+            String passwd = com.alibaba.otter.canal.deployer.CanalController.getProperty(properties, com.alibaba.otter.canal.deployer.CanalConstants.CANAL_ADMIN_PASSWD);
             CanalAdminController canalAdmin = new CanalAdminController(this);
             canalAdmin.setUser(user);
             canalAdmin.setPasswd(passwd);

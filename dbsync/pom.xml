@@ -11,4 +11,11 @@
     </parent>
 
     <artifactId>canal.parse.dbsync</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.alibaba.otter</groupId>
+            <artifactId>canal.parse.dbsync</artifactId>
+        </dependency>
+    </dependencies>
 </project>

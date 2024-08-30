@@ -16,11 +16,18 @@
         <dependency>
             <groupId>com.eshore.otter</groupId>
             <artifactId>canal.parse.dbsync</artifactId>
+            <version>${project.version}</version>
         </dependency>
 
         <dependency>
             <groupId>com.eshore.otter</groupId>
             <artifactId>canal.parse.driver</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.alibaba.otter</groupId>
+            <artifactId>canal.parse</artifactId>
         </dependency>
     </dependencies>
 </project>

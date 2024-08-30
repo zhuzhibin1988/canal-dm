@@ -5,14 +5,14 @@ import com.alibaba.otter.canal.filter.aviater.AviaterRegexFilter;
 import com.alibaba.otter.canal.protocol.CanalEntry.*;
 import com.alibaba.otter.canal.protocol.position.EntryPosition;
 import com.alibaba.otter.canal.parse.exception.CanalParseException;
-import com.eshore.otter.canal.parse.inbound.BinlogParser;
+import com.eshore.dbsync.logmnr.LogEvent;
+import com.eshore.otter.canal.parse.inbound.RedoLogParser;
 import com.eshore.otter.canal.parse.inbound.TableMeta;
 import com.eshore.otter.canal.parse.inbound.TableMeta.FieldMeta;
 import com.eshore.otter.canal.parse.inbound.dameng.ddl.DdlResult;
 import com.eshore.otter.canal.parse.inbound.dameng.ddl.DruidDdlParser;
 import com.eshore.otter.canal.parse.inbound.dameng.ddl.SimpleDdlParser;
 import com.google.protobuf.ByteString;
-import com.taobao.tddl.dbsync.binlog.LogEvent;
 import com.taobao.tddl.dbsync.binlog.event.*;
 import com.taobao.tddl.dbsync.binlog.event.TableMapLogEvent.ColumnInfo;
 import com.taobao.tddl.dbsync.binlog.event.mariadb.AnnotateRowsEvent;
@@ -38,7 +38,7 @@ import java.util.*;
  * @author jianghang 2013-1-17 下午02:41:14
  * @version 1.0.0
  */
-public class LogEventConvert extends AbstractCanalLifeCycle implements BinlogParser<LogEvent> {
+public class LogEventConvert extends AbstractCanalLifeCycle implements RedoLogParser<LogEvent> {
 
     public static final String          XA_XID              = "XA_XID";
     public static final String          XA_TYPE             = "XA_TYPE";

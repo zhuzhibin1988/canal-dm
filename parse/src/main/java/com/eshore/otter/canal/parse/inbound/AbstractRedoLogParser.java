@@ -1,10 +1,10 @@
 package com.eshore.otter.canal.parse.inbound;
 
 import com.alibaba.otter.canal.common.AbstractCanalLifeCycle;
-import com.eshore.otter.canal.parse.exception.CanalParseException;
+import com.alibaba.otter.canal.parse.exception.CanalParseException;
 import com.alibaba.otter.canal.protocol.CanalEntry.Entry;
 
-public abstract class AbstractBinlogParser<T> extends AbstractCanalLifeCycle implements BinlogParser<T> {
+public abstract class AbstractRedoLogParser<T> extends AbstractCanalLifeCycle implements RedoLogParser<T> {
 
     public void reset() {
     }

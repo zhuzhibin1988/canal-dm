@@ -6,7 +6,7 @@ import com.alibaba.otter.canal.parse.exception.CanalParseException;
 import com.alibaba.otter.canal.protocol.position.EntryPosition;
 import com.eshore.otter.canal.parse.CanalEventParser;
 import com.eshore.otter.canal.parse.inbound.AbstractEventParser;
-import com.eshore.otter.canal.parse.inbound.BinlogParser;
+import com.eshore.otter.canal.parse.inbound.RedoLogParser;
 import com.eshore.otter.canal.parse.inbound.MultiStageCoprocessor;
 import com.eshore.otter.canal.parse.inbound.dameng.dbsync.LogEventConvert;
 import com.eshore.otter.canal.parse.inbound.dameng.tsdb.DatabaseTableMeta;
@@ -48,7 +48,7 @@ public abstract class AbstractDamengEventParser extends AbstractEventParser {
     protected final AtomicLong     receivedBinlogBytes       = new AtomicLong(0L);
     private final AtomicLong       eventsPublishBlockingTime = new AtomicLong(0L);
 
-    protected BinlogParser buildParser() {
+    protected RedoLogParser buildParser() {
         LogEventConvert convert = new LogEventConvert();
         if (eventFilter != null && eventFilter instanceof AviaterRegexFilter) {
             convert.setNameFilter((AviaterRegexFilter) eventFilter);
