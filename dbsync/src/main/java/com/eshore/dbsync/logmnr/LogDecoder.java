@@ -1,6 +1,11 @@
 package com.eshore.dbsync.logmnr;
 
 import com.alibaba.otter.canal.parse.driver.mysql.packets.GTIDSet;
+import com.eshore.otter.canal.parse.driver.dameng.RedoLog;
+import com.taobao.tddl.dbsync.binlog.LogBuffer;
+import com.taobao.tddl.dbsync.binlog.LogContext;
+import com.taobao.tddl.dbsync.binlog.LogEvent;
+import com.taobao.tddl.dbsync.binlog.event.LogHeader;
 import org.apache.commons.compress.compressors.zstandard.ZstdCompressorInputStream;
 import org.apache.commons.compress.utils.Lists;
 import org.apache.commons.io.IOUtils;

@@ -3,6 +3,7 @@ package com.eshore.otter.canal.parse.inbound.dameng;
 import com.alibaba.otter.canal.filter.CanalEventFilter;
 import com.alibaba.otter.canal.filter.aviater.AviaterRegexFilter;
 import com.alibaba.otter.canal.parse.exception.CanalParseException;
+import com.alibaba.otter.canal.parse.inbound.MultiStageCoprocessor;
 import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.TableMetaTSDBFactory;
 import com.alibaba.otter.canal.protocol.position.EntryPosition;
 import com.alibaba.otter.canal.parse.CanalEventParser;
@@ -10,10 +11,10 @@ import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.DatabaseTableMeta;
 import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.DefaultTableMetaTSDBFactory;
 import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.TableMetaTSDB;
 import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.TableMetaTSDBFactory;
+import com.alibaba.otter.canal.parse.inbound.MultiStageCoprocessor;
 
 import com.eshore.otter.canal.parse.inbound.AbstractEventParser;
 import com.eshore.otter.canal.parse.inbound.RedoLogParser;
-import com.eshore.otter.canal.parse.inbound.MultiStageCoprocessor;
 import com.eshore.otter.canal.parse.inbound.dameng.dbsync.LogEventConvert;
 
 import java.nio.charset.Charset;

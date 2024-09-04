@@ -4,11 +4,12 @@ import com.alibaba.otter.canal.common.AbstractCanalLifeCycle;
 import com.alibaba.otter.canal.common.utils.NamedThreadFactory;
 import com.alibaba.otter.canal.parse.driver.mysql.packets.GTIDSet;
 import com.alibaba.otter.canal.protocol.CanalEntry;
-import com.eshore.otter.canal.parse.exception.CanalParseException;
-import com.eshore.otter.canal.parse.inbound.ErosaConnection;
-import com.eshore.otter.canal.parse.inbound.EventTransactionBuffer;
-import com.eshore.otter.canal.parse.inbound.MultiStageCoprocessor;
-import com.eshore.otter.canal.parse.inbound.TableMeta;
+import com.alibaba.otter.canal.parse.exception.CanalParseException;
+import com.alibaba.otter.canal.parse.inbound.ErosaConnection;
+import com.alibaba.otter.canal.parse.inbound.EventTransactionBuffer;
+import com.alibaba.otter.canal.parse.inbound.MultiStageCoprocessor;
+import com.alibaba.otter.canal.parse.inbound.TableMeta;
+
 import com.eshore.otter.canal.parse.inbound.dameng.dbsync.LogEventConvert;
 import com.lmax.disruptor.*;
 import com.taobao.tddl.dbsync.binlog.LogBuffer;
@@ -27,44 +28,44 @@ import java.util.concurrent.locks.LockSupport;
 
 /**
  * 针对解析器提供一个多阶段协同的处理
- * 
+ *
  * <pre>
  * 1. 网络接收 (单线程)
  * 2. 事件基本解析 (单线程，事件类型、DDL解析构造TableMeta、维护位点信息)
  * 3. 事件深度解析 (多线程, DML事件数据的完整解析)
  * 4. 投递到store (单线程)
  * </pre>
- * 
+ *
  * @author agapple 2018年7月3日 下午4:54:17
  * @since 1.0.26
  */
 public class DamengMultiStageCoprocessor extends AbstractCanalLifeCycle implements MultiStageCoprocessor {
 
-    private static final int                  maxFullTimes    = 10;
+    private static final int maxFullTimes = 10;
     private LogEventConvert logEventConvert;
-    private EventTransactionBuffer            transactionBuffer;
-    private ErosaConnection                   connection;
+    private EventTransactionBuffer transactionBuffer;
+    private ErosaConnection connection;
 
-    private int                               parserThreadCount;
-    private int                               ringBufferSize;
-    private RingBuffer<MessageEvent>          disruptorMsgBuffer;
-    private ExecutorService                   parserExecutor;
-    private ExecutorService                   stageExecutor;
-    private String                            destination;
-    private volatile CanalParseException      exception;
-    private AtomicLong                        eventsPublishBlockingTime;
-    private GTIDSet                           gtidSet;
-    private WorkerPool<MessageEvent>          workerPool;
+    private int parserThreadCount;
+    private int ringBufferSize;
+    private RingBuffer<MessageEvent> disruptorMsgBuffer;
+    private ExecutorService parserExecutor;
+    private ExecutorService stageExecutor;
+    private String destination;
+    private volatile CanalParseException exception;
+    private AtomicLong eventsPublishBlockingTime;
+    private GTIDSet gtidSet;
+    private WorkerPool<MessageEvent> workerPool;
     private BatchEventProcessor<MessageEvent> simpleParserStage;
     private BatchEventProcessor<MessageEvent> sinkStoreStage;
-    private LogContext                        logContext;
-    protected boolean                         filterDmlInsert = false;
-    protected boolean                         filterDmlUpdate = false;
-    protected boolean                         filterDmlDelete = false;
+    private LogContext logContext;
+    protected boolean filterDmlInsert = false;
+    protected boolean filterDmlUpdate = false;
+    protected boolean filterDmlDelete = false;
 
     public DamengMultiStageCoprocessor(int ringBufferSize, int parserThreadCount, LogEventConvert logEventConvert,
                                        EventTransactionBuffer transactionBuffer, String destination,
-                                       boolean filterDmlInsert, boolean filterDmlUpdate, boolean filterDmlDelete){
+                                       boolean filterDmlInsert, boolean filterDmlUpdate, boolean filterDmlDelete) {
         this.ringBufferSize = ringBufferSize;
         this.parserThreadCount = parserThreadCount;
         this.logEventConvert = logEventConvert;
@@ -80,21 +81,21 @@ public class DamengMultiStageCoprocessor extends AbstractCanalLifeCycle implemen
         super.start();
         this.exception = null;
         this.disruptorMsgBuffer = RingBuffer.createSingleProducer(new MessageEventFactory(),
-            ringBufferSize,
-            new BlockingWaitStrategy());
+                ringBufferSize,
+                new BlockingWaitStrategy());
         int tc = parserThreadCount > 0 ? parserThreadCount : 1;
         this.parserExecutor = Executors.newFixedThreadPool(tc, new NamedThreadFactory("MultiStageCoprocessor-Parser-"
-                                                                                      + destination));
+                + destination));
 
         this.stageExecutor = Executors.newFixedThreadPool(2, new NamedThreadFactory("MultiStageCoprocessor-other-"
-                                                                                    + destination));
+                + destination));
         SequenceBarrier sequenceBarrier = disruptorMsgBuffer.newBarrier();
         ExceptionHandler exceptionHandler = new SimpleFatalExceptionHandler();
         // stage 2
         this.logContext = new LogContext();
         simpleParserStage = new BatchEventProcessor<>(disruptorMsgBuffer,
-            sequenceBarrier,
-            new SimpleParserStage(logContext));
+                sequenceBarrier,
+                new SimpleParserStage(logContext));
         simpleParserStage.setExceptionHandler(exceptionHandler);
         disruptorMsgBuffer.addGatingSequences(simpleParserStage.getSequence());
 
@@ -105,9 +106,9 @@ public class DamengMultiStageCoprocessor extends AbstractCanalLifeCycle implemen
             workHandlers[i] = new DmlParserStage();
         }
         workerPool = new WorkerPool<MessageEvent>(disruptorMsgBuffer,
-            dmlParserSequenceBarrier,
-            exceptionHandler,
-            workHandlers);
+                dmlParserSequenceBarrier,
+                exceptionHandler,
+                workHandlers);
         Sequence[] sequence = workerPool.getWorkerSequences();
         disruptorMsgBuffer.addGatingSequences(sequence);
 
@@ -240,7 +241,7 @@ public class DamengMultiStageCoprocessor extends AbstractCanalLifeCycle implemen
         private LogDecoder decoder;
         private LogContext context;
 
-        public SimpleParserStage(LogContext context){
+        public SimpleParserStage(LogContext context) {
             decoder = new LogDecoder(LogEvent.UNKNOWN_EVENT, LogEvent.ENUM_END_EVENT);
             this.context = context;
             if (gtidSet != null) {
@@ -345,7 +346,7 @@ public class DamengMultiStageCoprocessor extends AbstractCanalLifeCycle implemen
                         List<CanalEntry.Entry> entrys = Lists.newArrayList();
                         for (int index = 0; index < event.getIterateEvents().size(); index++) {
                             CanalEntry.Entry entry = processEvent(event.getIterateEvents().get(index),
-                                event.getIterateTables().get(index));
+                                    event.getIterateTables().get(index));
                             if (entry != null) {
                                 entrys.add(entry);
                             }
@@ -415,7 +416,7 @@ public class DamengMultiStageCoprocessor extends AbstractCanalLifeCycle implemen
                 if (connection instanceof DamengConnection && logEvent.getSemival() == 1) {
                     // semi ack回报
                     ((DamengConnection) connection).sendSemiAck(logEvent.getHeader().getLogFileName(),
-                        logEvent.getHeader().getLogPos());
+                            logEvent.getHeader().getLogPos());
                 }
 
                 // clear for gc
@@ -448,15 +449,15 @@ public class DamengMultiStageCoprocessor extends AbstractCanalLifeCycle implemen
 
     static class MessageEvent {
 
-        private LogBuffer        buffer;
+        private LogBuffer buffer;
         private CanalEntry.Entry entry;
-        private boolean          needDmlParse = false;
-        private TableMeta        table;
-        private LogEvent         event;
-        private boolean                needIterate  = false;
+        private boolean needDmlParse = false;
+        private TableMeta table;
+        private LogEvent event;
+        private boolean needIterate = false;
         // compress binlog
-        private List<LogEvent>         iterateEvents;
-        private List<TableMeta>        iterateTables;
+        private List<LogEvent> iterateEvents;
+        private List<TableMeta> iterateTables;
         private List<CanalEntry.Entry> iterateEntrys;
 
         public LogBuffer getBuffer() {

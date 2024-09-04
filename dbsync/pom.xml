@@ -17,5 +17,12 @@
             <groupId>com.alibaba.otter</groupId>
             <artifactId>canal.parse.dbsync</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>com.eshore.otter</groupId>
+            <artifactId>canal.parse.driver</artifactId>
+            <version>1.0.0</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
 </project>

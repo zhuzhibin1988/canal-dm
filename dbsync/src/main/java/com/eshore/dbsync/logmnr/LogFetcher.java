@@ -1,9 +1,12 @@
 package com.eshore.dbsync.logmnr;
 
+import com.eshore.otter.canal.parse.driver.dameng.RedoLog;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Declaration a binary-log fetcher. It extends from <code>LogBuffer</code>.

@@ -77,15 +77,6 @@ public class DamengScnContext {
             return this;
         }
 
-        public Builder snapshot(boolean snapshot) {
-            this.snapshot = snapshot;
-            return this;
-        }
-
-        public Builder snapshotCompleted(boolean snapshotCompleted) {
-            this.snapshotCompleted = snapshotCompleted;
-            return this;
-        }
 
         public Builder transactionContext(TransactionContext transactionContext) {
             this.transactionContext = transactionContext;
@@ -166,16 +157,6 @@ public class DamengScnContext {
         sourceInfo.setTableId(tableId);
     }
 
-    @Override
-    public boolean isSnapshotRunning() {
-        return sourceInfo.isSnapshot() && !snapshotCompleted;
-    }
-
-    @Override
-    public void preSnapshotStart() {
-        sourceInfo.setSnapshot(SnapshotRecord.TRUE);
-        snapshotCompleted = false;
-    }
 
     @Override
     public void preSnapshotCompletion() {

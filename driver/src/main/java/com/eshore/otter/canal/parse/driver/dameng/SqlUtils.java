@@ -53,8 +53,8 @@ public class SqlUtils {
 
     // LogMiner statements
 //    static final String BUILD_DICTIONARY = "BEGIN DBMS_LOGMNR_D.BUILD (options => DBMS_LOGMNR_D.STORE_IN_REDO_LOGS); END;";
-    static final String SELECT_SYSTIMESTAMP = "SELECT SYSTIMESTAMP FROM DUAL";
-    static final String END_LOGMNR = "BEGIN SYS.DBMS_LOGMNR.END_LOGMNR(); END;";
+    public static final String SELECT_SYSTIMESTAMP = "SELECT SYSTIMESTAMP FROM DUAL";
+    public static final String END_LOGMNR = "BEGIN SYS.DBMS_LOGMNR.END_LOGMNR(); END;";
 
     /**
      * Querying V$LOGMNR_LOGS
@@ -69,23 +69,23 @@ public class SqlUtils {
      * 4
      * Indicates that a redo log file (based on sequence number) is missing from the LogMiner redo log file list.
      */
-    static final String FILES_FOR_MINING = "SELECT FILENAME AS NAME FROM V$LOGMNR_LOGS";
+    public static final String FILES_FOR_MINING = "SELECT FILENAME AS NAME FROM V$LOGMNR_LOGS";
 
-    static String databaseSupplementalLoggingAllCheckQuery() {
+    public static String databaseSupplementalLoggingAllCheckQuery() {
 
         return String.format("SELECT 'KEY', SUPPLEMENTAL_LOG_DATA_ALL FROM %s", DATABASE_VIEW);
     }
 
-    static String databaseSupplementalLoggingMinCheckQuery() {
+    public static String databaseSupplementalLoggingMinCheckQuery() {
 
         return String.format("SELECT 'KEY', SUPPLEMENTAL_LOG_DATA_MIN FROM %s", DATABASE_VIEW);
     }
 
-    static String currentScnQuery() {
+    public static String currentScnQuery() {
         return String.format("SELECT ARCH_LSN FROM %s", DATABASE_VIEW);
     }
 
-    static String oldestFirstChangeQuery(Duration archiveLogRetention) {
+    public static String oldestFirstChangeQuery(Duration archiveLogRetention) {
         final StringBuilder sb = new StringBuilder();
         // sb.append("SELECT MIN(FIRST_CHANGE#) FROM (SELECT MIN(FIRST_CHANGE#) AS FIRST_CHANGE# ");
         // sb.append("FROM ").append(LOG_VIEW).append(" ");
@@ -147,7 +147,7 @@ public class SqlUtils {
      * @param strategy Log Mining strategy
      * @return statement todo: handle corruption. STATUS (Double) — value of 0 indicates it is executable
      */
-    static String startLogMinerStatement(Scn startScn, Scn endScn) {
+    public static String startLogMinerStatement(Scn startScn, Scn endScn) {
         return "BEGIN dbms_logmnr.start_logmnr( startScn => '" + startScn + "',  endScn => '" + endScn + "', OPTIONS => 2128 ); END;";
     }
 
@@ -280,46 +280,49 @@ public class SqlUtils {
         return text;
     }
 
-    static String addLogFileStatement(String option, String fileName) {
+    public static String addLogFileStatement(String option, String fileName) {
         return "BEGIN sys.dbms_logmnr.add_logfile(LOGFILENAME => '" + fileName + "', OPTIONS => " + option + ");END;";
     }
 
-    static String deleteLogFileStatement(String fileName) {
+    public static String deleteLogFileStatement(String fileName) {
+
         return "BEGIN SYS.DBMS_LOGMNR.REMOVE_LOGFILE(LOGFILENAME => '" + fileName + "');END;";
     }
 
-//    static String tableExistsQuery(String tableName) {
-//        return "SELECT '1' AS ONE FROM USER_TABLES WHERE TABLE_NAME = '" + tableName + "'";
-//    }
+    public static String tableExistsQuery(String tableName) {
 
-//    static String dropTableStatement(String tableName) {
-//        return "DROP TABLE " + tableName.toUpperCase() + " PURGE";
-//    }
+        return "SELECT '1' AS ONE FROM USER_TABLES WHERE TABLE_NAME = '" + tableName + "'";
+    }
+
+    public static String dropTableStatement(String tableName) {
+        
+        return "DROP TABLE " + tableName.toUpperCase() + " PURGE";
+    }
 
     // no constraints, no indexes, minimal info
-//    static String logMiningHistoryDdl(String tableName) {
-//        return "create  TABLE " + tableName + "(" +
-//                "row_sequence NUMBER(19,0), " +
-//                "captured_scn NUMBER(19,0), " +
-//                "table_name VARCHAR2(30 CHAR), " +
-//                "seg_owner VARCHAR2(30 CHAR), " +
-//                "operation_code NUMBER(19,0), " +
-//                "change_time TIMESTAMP(6), " +
-//                // "row_id VARCHAR2(20 CHAR)," +
-//                // "session_num NUMBER(19,0)," +
-//                // "serial_num NUMBER(19,0)," +
-//                "transaction_id VARCHAR2(50 CHAR), " +
-//                // "rs_id VARCHAR2(34 CHAR)," +
-//                // "ssn NUMBER(19,0)," +
-//                "csf NUMBER(19,0), " +
-//                "redo_sql VARCHAR2(4000 CHAR)" +
-//                // "capture_time TIMESTAMP(6)" +
-//                ") nologging";
-//    }
+    public static String logMiningHistoryDdl(String tableName) {
+        return "create  TABLE " + tableName + "(" +
+                "row_sequence NUMBER(19,0), " +
+                "captured_scn NUMBER(19,0), " +
+                "table_name VARCHAR2(30 CHAR), " +
+                "seg_owner VARCHAR2(30 CHAR), " +
+                "operation_code NUMBER(19,0), " +
+                "change_time TIMESTAMP(6), " +
+                // "row_id VARCHAR2(20 CHAR)," +
+                // "session_num NUMBER(19,0)," +
+                // "serial_num NUMBER(19,0)," +
+                "transaction_id VARCHAR2(50 CHAR), " +
+                // "rs_id VARCHAR2(34 CHAR)," +
+                // "ssn NUMBER(19,0)," +
+                "csf NUMBER(19,0), " +
+                "redo_sql VARCHAR2(4000 CHAR)" +
+                // "capture_time TIMESTAMP(6)" +
+                ") nologging";
+    }
 
-//    static String truncateTableStatement(String tableName) {
-//        return "TRUNCATE TABLE " + tableName;
-//    }
+    public static String truncateTableStatement(String tableName) {
+        return "TRUNCATE TABLE " + tableName;
+    }
 
     /**
      * This method return query which converts given SCN in days and deduct from the current day
@@ -329,5 +332,13 @@ public class SqlUtils {
             return null;
         }
         return "select sysdate - CAST(scn_to_timestamp(" + scn.toString() + ") as date) from dual";
+    }
+
+    public static String descTableStatement(String schema, String tableName) {
+        return String.format("select "
+                        + "owner, table_name, column_name, data_type as column_type "
+                        + "from all_tab_columns "
+                        + "where  owner = upper('%s') and  table_name = upper('%s')",
+                schema, tableName);
     }
 }

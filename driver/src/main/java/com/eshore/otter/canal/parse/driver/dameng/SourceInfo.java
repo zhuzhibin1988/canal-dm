@@ -23,8 +23,7 @@ public class SourceInfo {
     private Instant sourceTime;
     private TableId tableId;
 
-    protected SourceInfo(DamengConnectorConfig connectorConfig) {
-        super(connectorConfig);
+    protected SourceInfo() {
     }
 
     public Scn getScn() {

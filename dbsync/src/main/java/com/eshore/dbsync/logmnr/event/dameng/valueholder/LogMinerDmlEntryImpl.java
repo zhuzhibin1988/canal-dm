@@ -5,7 +5,7 @@
  */
 package com.eshore.dbsync.logmnr.event.dameng.valueholder;
 
-import io.debezium.connector.dameng.Scn;
+import com.eshore.otter.canal.parse.driver.dameng.Scn;
 import io.debezium.data.Envelope;
 
 import java.sql.Timestamp;

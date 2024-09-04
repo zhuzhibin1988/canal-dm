@@ -1,13 +1,8 @@
 package com.eshore.otter.canal.parse.inbound.dameng.dbsync;
 
-import com.alibaba.otter.canal.parse.driver.mysql.socket.SocketChannel;
-
 import com.eshore.dbsync.logmnr.LogFetcher;
-import com.eshore.otter.canal.parse.driver.dameng.DamengConnector;
 import com.eshore.otter.canal.parse.driver.dameng.RedoLog;
-import com.eshore.otter.canal.parse.driver.dameng.Scn;
-import com.eshore.otter.canal.parse.driver.dameng.SqlUtils;
-import com.eshore.otter.dbsync.logmnr.LogFetcher;
+import com.eshore.otter.canal.parse.driver.dameng.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,7 +50,7 @@ public class DirectLogFetcher extends LogFetcher {
         super(initialCapacity, growthFactor);
     }
 
-    public void start(DamengConnector connector) throws IOException {
+    public void start(DamengConnector connector) throws SQLException {
         this.connector = connector;
     }
 
@@ -71,43 +66,6 @@ public class DirectLogFetcher extends LogFetcher {
                 logger.warn("Reached end of input stream while fetching header");
                 return false;
             }
-
-            // Fetching the first packet(may a multi-packet).
-            int netlen = getUint24(PACKET_LEN_OFFSET);
-            int netnum = getUint8(PACKET_SEQ_OFFSET);
-            if (!fetch0(NET_HEADER_SIZE, netlen)) {
-                logger.warn("Reached end of input stream: packet #" + netnum + ", len = " + netlen);
-                return false;
-            }
-
-            // Detecting error code.
-            final int mark = getUint8(NET_HEADER_SIZE);
-            if (mark != 0) {
-                if (mark == 255) // error from master
-                {
-                    // Indicates an error, for example trying to fetch from
-                    // wrong
-                    // binlog position.
-                    position = NET_HEADER_SIZE + 1;
-                    final int errno = getInt16();
-                    String sqlstate = forward(1).getFixString(SQLSTATE_LENGTH);
-                    String errmsg = getFixString(limit - position);
-                    throw new IOException("Received error packet:" + " errno = " + errno + ", sqlstate = " + sqlstate
-                            + " errmsg = " + errmsg);
-                } else if (mark == 254) {
-                    // Indicates end of stream. It's not clear when this would
-                    // be sent.
-                    logger.warn("Received EOF packet from server, apparent"
-                            + " master disconnected. It's may be duplicate slaveId , check instance config");
-                    return false;
-                } else {
-                    // Should not happen.
-                    throw new IOException("Unexpected response " + mark + " while fetching binlog: packet #" + netnum
-                            + ", len = " + netlen);
-                }
-            }
-
-
             position = origin;
             limit -= origin;
             return true;
@@ -128,17 +86,54 @@ public class DirectLogFetcher extends LogFetcher {
 
     private final boolean fetch0(Scn startScn, Scn endScn) throws SQLException {
         ensureCapacity(off + len);
-
-        String sql = SqlUtils.logMinerContentsQuery("");
-        PreparedStatement mineView = this.connector.connection().prepareStatement(sql);
-        mineView.setString(1, startScn.toString());
-        mineView.setString(2, endScn.toString());
-        ResultSet rs = mineView.executeQuery();
+        LogFile logFile = queryRedoLogFile();
+        addLogFile(logFile);
+        startLogmnr(startScn, endScn);
+        ResultSet rs = queryRedoLog(startScn, endScn);
         while (rs.next()) {
             RedoLog redoLog = new RedoLog();
             this.buffer.add(redoLog);
         }
+        removeLogFile(logFile);
+        endLogmnr();
         return true;
+    }
+
+    private void initArchiveFileForMining() {
+
+    }
+
+    private LogFile queryRedoLogFile() throws SQLException {
+        String sql = SqlUtils.FILES_FOR_MINING;
+        PreparedStatement ps = this.connector.connect().prepareStatement(sql);
+        return ps.executeQuery();
+    }
+
+    private List<RedoLog> queryRedoLog(Scn startScn, Scn endScn) throws SQLException {
+        String sql = SqlUtils.logMinerContentsQuery("");
+        PreparedStatement mineView = this.connector.connect().prepareStatement(sql);
+        mineView.setString(1, startScn.toString());
+        mineView.setString(2, endScn.toString());
+        return mineView.executeQuery();
+    }
+
+    private void addLogFile(LogFile logFile) throws SQLException {
+        String sql = SqlUtils.addLogFileStatement("DBMS_LOGMNR.ADDFILE", logFile.getFileName());
+        connector.connect().createStatement().execute(sql);
+    }
+
+    private void startLogmnr(Scn startScn, Scn endScn) throws SQLException {
+        String sql = SqlUtils.startLogMinerStatement(startScn, endScn);
+        connector.connect().createStatement().execute(sql);
+    }
+
+    private void endLogmnr() throws SQLException {
+        this.connector.connect().createStatement().execute(SqlUtils.END_LOGMNR);
+    }
+
+    private void removeLogFile(LogFile logFile) throws SQLException {
+        String sql = SqlUtils.deleteLogFileStatement(logFile.getFileName());
+        this.connector.connect().createStatement().execute(sql);
     }
 
     /**

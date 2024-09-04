@@ -6,6 +6,8 @@
 package com.eshore.dbsync.logmnr.event.dameng;
 
 import com.eshore.dbsync.logmnr.Scn;
+import com.eshore.otter.canal.parse.driver.dameng.DamengConnector;
+import com.eshore.otter.canal.parse.driver.dameng.SqlUtils;
 import io.debezium.DebeziumException;
 import io.debezium.connector.dameng.*;
 import io.debezium.jdbc.JdbcConfiguration;
@@ -47,8 +49,7 @@ public class LogMinerHelper {
             if (conn != null) {
                 try {
                     conn.close();
-                }
-                catch (SQLException e) {
+                } catch (SQLException e) {
                     LOGGER.warn("Cannot close existing RAC flush connection", e);
                 }
             }
@@ -57,8 +58,7 @@ public class LogMinerHelper {
         for (String host : hosts) {
             try {
                 racFlushConnections.put(host, createFlushConnection(config, host));
-            }
-            catch (SQLException e) {
+            } catch (SQLException e) {
                 LOGGER.error("Cannot connect to RAC node {}", host, e);
             }
         }
@@ -87,8 +87,8 @@ public class LogMinerHelper {
      */
     public static Scn getCurrentScn(DamengConnection connection) throws SQLException {
         try (Statement statement = connection.connection(false).createStatement();
-                // ResultSet rs = statement.executeQuery(SqlUtils.currentScnQuery())) {
-                ResultSet rs = statement.executeQuery("SELECT CLSN FROM V$ARCH_FILE WHERE STATUS = 'ACTIVE'")) {
+             // ResultSet rs = statement.executeQuery(SqlUtils.currentScnQuery())) {
+             ResultSet rs = statement.executeQuery("SELECT CLSN FROM V$ARCH_FILE WHERE STATUS = 'ACTIVE'")) {
             if (!rs.next()) {
                 throw new IllegalStateException("Couldn't get SCN");
             }
@@ -145,8 +145,7 @@ public class LogMinerHelper {
                 streamingMetrics.changeSleepingTime(true);
             }
             return currentScn;
-        }
-        else {
+        } else {
             streamingMetrics.changeSleepingTime(false);
             return topScnToMine;
         }
@@ -167,8 +166,7 @@ public class LogMinerHelper {
         Scn currentScn = getCurrentScn(connection);
         if (isRac) {
             flushRacLogWriters(currentScn, config, racHosts);
-        }
-        else {
+        } else {
             LOGGER.trace("Updating {} with SCN {}", SqlUtils.LOGMNR_FLUSH_TABLE, currentScn);
             executeCallableStatement(connection, SqlUtils.UPDATE_FLUSH_TABLE + currentScn);
             connection.commit();
@@ -189,8 +187,7 @@ public class LogMinerHelper {
                 OffsetDateTime offsetDateTime = OffsetDateTime.of(localDateTime2, ZoneOffset.UTC);
                 return offsetDateTime;
                 // return rs.getObject(1, OffsetDateTime.class);
-            }
-            else {
+            } else {
                 return null;
             }
         });
@@ -221,8 +218,7 @@ public class LogMinerHelper {
             Instant start = Instant.now();
             executeCallableStatement(connection, statement);
             streamingMetrics.addCurrentMiningSessionStart(Duration.between(start, Instant.now()));
-        }
-        catch (SQLException e) {
+        } catch (SQLException e) {
             // Capture database state before throwing exception
             logDatabaseState(connection);
             throw e;
@@ -306,8 +302,7 @@ public class LogMinerHelper {
             if (total != null && total.get(TOTAL) != null) {
                 return Integer.parseInt(total.get(TOTAL));
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             LOGGER.error("Cannot get switch counter", e);
         }
         return 0;
@@ -338,8 +333,7 @@ public class LogMinerHelper {
                 LOGGER.trace("Flushing Log Writer buffer of node {}", host);
                 executeCallableStatement(conn, SqlUtils.UPDATE_FLUSH_TABLE + currentScn);
                 conn.commit();
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 LOGGER.warn("Cannot flush Log Writer buffer of the node {} due to {}", host, e);
                 errors = true;
             }
@@ -351,8 +345,7 @@ public class LogMinerHelper {
             Metronome metronome = Metronome.sleeper(Duration.ofMillis(3000), Clock.system());
             try {
                 metronome.pause();
-            }
-            catch (InterruptedException e) {
+            } catch (InterruptedException e) {
                 LOGGER.warn("Metronome was interrupted");
             }
         }
@@ -399,8 +392,7 @@ public class LogMinerHelper {
                     }
                 }
             }
-        }
-        finally {
+        } finally {
             if (pdbName != null) {
                 connection.resetSessionToCdb();
             }
@@ -428,12 +420,10 @@ public class LogMinerHelper {
         String stopMining = SqlUtils.END_LOGMNR;
         try {
             executeCallableStatement(connection, stopMining);
-        }
-        catch (SQLException e) {
+        } catch (SQLException e) {
             if (e.getMessage().toUpperCase().contains("ORA-01307")) {
                 LOGGER.info("LogMiner session was already closed");
-            }
-            else {
+            } else {
                 LOGGER.error("Cannot close LogMiner session gracefully: {}", e);
             }
         }
@@ -540,8 +530,7 @@ public class LogMinerHelper {
                 return Optional.of(offsetScn);
             }
             return Optional.empty();
-        }
-        catch (SQLException e) {
+        } catch (SQLException e) {
             LOGGER.error("Cannot calculate days difference due to {}", e);
             return Optional.of(offsetScn);
         }
@@ -578,8 +567,7 @@ public class LogMinerHelper {
                     if (logFile.isCurrent() || logFile.getNextScn().compareTo(offsetScn) >= 0) {
                         LOGGER.trace("Online redo log {} with SCN range {} to {} ({}) to be added.", fileName, firstChangeNumber, nextChangeNumber, status);
                         redoLogFiles.add(logFile);
-                    }
-                    else {
+                    } else {
                         LOGGER.trace("Online redo log {} with SCN range {} to {} ({}) to be excluded.", fileName, firstChangeNumber, nextChangeNumber, status);
                     }
                 }
@@ -613,8 +601,7 @@ public class LogMinerHelper {
             LOGGER.debug("Available archive logs are:");
             try {
                 logQueryResults(connection, "SELECT * FROM V$ARCHIVED_LOG");
-            }
-            catch (SQLException e) {
+            } catch (SQLException e) {
                 LOGGER.debug("Failed to obtain archive log table entries", e);
             }
             // LOGGER.debug("Available logs are:");
@@ -634,15 +621,13 @@ public class LogMinerHelper {
             LOGGER.debug("Log entries registered with LogMiner are:");
             try {
                 logQueryResults(connection, "SELECT * FROM V$LOGMNR_LOGS");
-            }
-            catch (SQLException e) {
+            } catch (SQLException e) {
                 LOGGER.debug("Failed to obtain registered logs with LogMiner", e);
             }
             LOGGER.debug("Log mining session parameters are:");
             try {
                 logQueryResults(connection, "SELECT * FROM V$LOGMNR_PARAMETERS");
-            }
-            catch (SQLException e) {
+            } catch (SQLException e) {
                 LOGGER.debug("Failed to obtain log mining session parameters", e);
             }
         }
@@ -707,31 +692,31 @@ public class LogMinerHelper {
      * @param conn connection
      * @throws SQLException something happened
      */
-    public static void removeLogFilesFromMining(DamengConnection conn) throws SQLException {
-        try (PreparedStatement ps = conn.connection(false).prepareStatement(SqlUtils.FILES_FOR_MINING);
-                ResultSet result = ps.executeQuery()) {
+    public static void removeLogFilesFromMining(DamengConnector connector) throws SQLException {
+        try (PreparedStatement ps = connector.connect().prepareStatement(SqlUtils.FILES_FOR_MINING);
+             ResultSet result = ps.executeQuery()) {
             Set<String> files = new LinkedHashSet<>();
             while (result.next()) {
                 files.add(result.getString(1));
             }
             for (String fileName : files) {
-                executeCallableStatement(conn, SqlUtils.deleteLogFileStatement(fileName));
+                executeCallableStatement(connector, SqlUtils.deleteLogFileStatement(fileName));
                 LOGGER.debug("File {} was removed from mining", fileName);
             }
         }
     }
 
-    private static void executeCallableStatement(DamengConnection connection, String statement) throws SQLException {
+    private static void executeCallableStatement(DamengConnector connector, String statement) throws SQLException {
         Objects.requireNonNull(statement);
-        try (CallableStatement s = connection.connection(false).prepareCall(statement)) {
+        try (CallableStatement s = connector.connect().prepareCall(statement)) {
             s.execute();
         }
     }
 
-    public static Map<String, String> getMap(DamengConnection connection, String query, String nullReplacement) throws SQLException {
+    public static Map<String, String> getMap(DamengConnector connector, String query, String nullReplacement) throws SQLException {
         Map<String, String> result = new LinkedHashMap<>();
         try (
-                PreparedStatement statement = connection.connection(false).prepareStatement(query);
+                PreparedStatement statement = connector.connect().prepareStatement(query);
                 ResultSet rs = statement.executeQuery()) {
             while (rs.next()) {
                 String value = rs.getString(2);
@@ -742,9 +727,9 @@ public class LogMinerHelper {
         }
     }
 
-    public static Object getSingleResult(DamengConnection connection, String query, DATATYPE type) throws SQLException {
-        try (PreparedStatement statement = connection.connection(false).prepareStatement(query);
-                ResultSet rs = statement.executeQuery()) {
+    public static Object getSingleResult(DamengConnector connector, String query, DATATYPE type) throws SQLException {
+        try (PreparedStatement statement = connector.connect().prepareStatement(query);
+             ResultSet rs = statement.executeQuery()) {
             if (rs.next()) {
                 switch (type) {
                     case LONG:

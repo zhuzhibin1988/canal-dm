@@ -2,21 +2,27 @@ package com.eshore.otter.canal.parse.inbound.dameng.dbsync;
 
 import com.alibaba.otter.canal.parse.driver.mysql.packets.server.FieldPacket;
 import com.alibaba.otter.canal.parse.driver.mysql.packets.server.ResultSetPacket;
+import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.TableMetaTSDB;
 import com.alibaba.otter.canal.protocol.position.EntryPosition;
 import com.alibaba.otter.canal.parse.exception.CanalParseException;
-import com.eshore.otter.canal.parse.inbound.TableMeta;
-import com.eshore.otter.canal.parse.inbound.TableMeta.FieldMeta;
+import com.alibaba.otter.canal.parse.inbound.TableMeta;
+import com.alibaba.otter.canal.parse.inbound.TableMeta.FieldMeta;
+import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.DatabaseTableMeta;
+import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.MemoryTableMeta;
+import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.TableMetaTSDB;
+
+import com.eshore.otter.canal.parse.driver.dameng.SqlUtils;
 import com.eshore.otter.canal.parse.inbound.dameng.DamengConnection;
 import com.eshore.otter.canal.parse.inbound.dameng.ddl.DruidDdlParser;
-import com.eshore.otter.canal.parse.inbound.dameng.tsdb.DatabaseTableMeta;
-import com.eshore.otter.canal.parse.inbound.dameng.tsdb.MemoryTableMeta;
-import com.eshore.otter.canal.parse.inbound.dameng.tsdb.TableMetaTSDB;
+
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import org.apache.commons.lang.StringUtils;
 
 import java.io.IOException;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -30,22 +36,22 @@ import java.util.Map;
  */
 public class TableMetaCache {
 
-    public static final String              COLUMN_NAME    = "field";
-    public static final String              COLUMN_TYPE    = "type";
-    public static final String              IS_NULLABLE    = "null";
-    public static final String              COLUMN_KEY     = "key";
-    public static final String              COLUMN_DEFAULT = "default";
-    public static final String              EXTRA          = "extra";
+    public static final String COLUMN_NAME = "field";
+    public static final String COLUMN_TYPE = "type";
+    public static final String IS_NULLABLE = "null";
+    public static final String COLUMN_KEY = "key";
+    public static final String COLUMN_DEFAULT = "default";
+    public static final String EXTRA = "extra";
     private DamengConnection connection;
-    private boolean                         isOnRDS        = false;
-    private boolean                         isOnPolarX     = false;
-    private boolean                         isOnTSDB       = false;
+    private boolean isOnRDS = false;
+    private boolean isOnPolarX = false;
+    private boolean isOnTSDB = false;
 
     private TableMetaTSDB tableMetaTSDB;
     // 第一层tableId,第二层schema.table,解决tableId重复，对应多张表
     private LoadingCache<String, TableMeta> tableMetaDB;
 
-    public TableMetaCache(DamengConnection con, TableMetaTSDB tableMetaTSDB){
+    public TableMetaCache(DamengConnection con, TableMetaTSDB tableMetaTSDB) {
         this.connection = con;
         this.tableMetaTSDB = tableMetaTSDB;
         // 如果持久存储的表结构为空，从db里面获取下
@@ -71,85 +77,33 @@ public class TableMetaCache {
         } else {
             isOnTSDB = true;
         }
+    }
 
+    private synchronized TableMeta getTableMetaByDB(String fullname) throws SQLException {
+        String[] names = StringUtils.split(fullname, "`.`");
+        String schema = names[0];
+        String table = names[1].substring(0, names[1].length());
+        ResultSet rs = connection.query(SqlUtils.descTableStatement(schema, table));
+        return new TableMeta(schema, table, parseTableMeta(schema, table, rs));
+    }
+
+    public static List<FieldMeta> parseTableMeta(String schema, String table, ResultSet rs) {
+        List<FieldMeta> fieldMetas = new ArrayList<>();
         try {
-            ResultSetPacket packet = connection.query("show global variables  like 'rds\\_%'");
-            if (packet.getFieldValues().size() > 0) {
-                isOnRDS = true;
+            while (rs.next()) {
+                String columnName = rs.getString("column_name");
+                String columnType = rs.getString("column_type");
+                FieldMeta fieldMeta = new FieldMeta();
+                fieldMeta.setColumnName(columnName);
+                fieldMeta.setColumnType(columnType);
+                fieldMetas.add(fieldMeta);
             }
-        } catch (IOException e) {
-        }
+        } catch (SQLException e) {
 
-        try {
-            ResultSetPacket packet = connection.query("show global variables  like 'polarx\\_%'");
-            if (packet.getFieldValues().size() > 0) {
-                isOnPolarX = true;
-            }
-        } catch (IOException e) {
         }
+        return fieldMetas;
     }
 
-    private synchronized TableMeta getTableMetaByDB(String fullname) throws IOException {
-        try {
-            ResultSetPacket packet = connection.query("show create table " + fullname);
-            String[] names = StringUtils.split(fullname, "`.`");
-            String schema = names[0];
-            String table = names[1].substring(0, names[1].length());
-            return new TableMeta(schema, table, parseTableMeta(schema, table, packet));
-        } catch (Throwable e) { // fallback to desc table
-            ResultSetPacket packet = connection.query("desc " + fullname);
-            String[] names = StringUtils.split(fullname, "`.`");
-            String schema = names[0];
-            String table = names[1].substring(0, names[1].length());
-            return new TableMeta(schema, table, parseTableMetaByDesc(packet));
-        }
-    }
-
-    public static List<FieldMeta> parseTableMeta(String schema, String table, ResultSetPacket packet) {
-        if (packet.getFieldValues().size() > 1) {
-            String createDDL = packet.getFieldValues().get(1);
-            MemoryTableMeta memoryTableMeta = new MemoryTableMeta();
-            memoryTableMeta.apply(DatabaseTableMeta.INIT_POSITION, schema, createDDL, null);
-            TableMeta tableMeta = memoryTableMeta.find(schema, table);
-            return tableMeta.getFields();
-        } else {
-            return new ArrayList<>();
-        }
-    }
-
-    /**
-     * 处理desc table的结果
-     */
-    public static List<FieldMeta> parseTableMetaByDesc(ResultSetPacket packet) {
-        Map<String, Integer> nameMaps = new HashMap<>(6, 1f);
-        int index = 0;
-        for (FieldPacket fieldPacket : packet.getFieldDescriptors()) {
-            nameMaps.put(StringUtils.lowerCase(fieldPacket.getName()), index++);
-        }
-
-        int size = packet.getFieldDescriptors().size();
-        int count = packet.getFieldValues().size() / packet.getFieldDescriptors().size();
-        List<FieldMeta> result = new ArrayList<>();
-        for (int i = 0; i < count; i++) {
-            FieldMeta meta = new FieldMeta();
-            // 做一个优化，使用String.intern()，共享String对象，减少内存使用
-            meta.setColumnName(packet.getFieldValues().get(nameMaps.get(COLUMN_NAME) + i * size).intern());
-            meta.setColumnType(packet.getFieldValues().get(nameMaps.get(COLUMN_TYPE) + i * size));
-            meta.setNullable(StringUtils.equalsIgnoreCase(packet.getFieldValues().get(nameMaps.get(IS_NULLABLE) + i
-                                                                                      * size),
-                "YES"));
-            meta.setKey("PRI".equalsIgnoreCase(packet.getFieldValues().get(nameMaps.get(COLUMN_KEY) + i * size)));
-            meta.setUnique("UNI".equalsIgnoreCase(packet.getFieldValues().get(nameMaps.get(COLUMN_KEY) + i * size)));
-            // 特殊处理引号
-            meta.setDefaultValue(DruidDdlParser.unescapeQuotaName(packet.getFieldValues()
-                .get(nameMaps.get(COLUMN_DEFAULT) + i * size)));
-            meta.setExtra(packet.getFieldValues().get(nameMaps.get(EXTRA) + i * size));
-
-            result.add(meta);
-        }
-
-        return result;
-    }
 
     public TableMeta getTableMeta(String schema, String table) {
         return getTableMeta(schema, table, true);
@@ -253,13 +207,13 @@ public class TableMetaCache {
     private String getFullName(String schema, String table) {
         StringBuilder builder = new StringBuilder();
         return builder.append('`')
-            .append(schema)
-            .append('`')
-            .append('.')
-            .append('`')
-            .append(table)
-            .append('`')
-            .toString();
+                .append(schema)
+                .append('`')
+                .append('.')
+                .append('`')
+                .append(table)
+                .append('`')
+                .toString();
     }
 
     public boolean isOnTSDB() {
@@ -269,21 +223,4 @@ public class TableMetaCache {
     public void setOnTSDB(boolean isOnTSDB) {
         this.isOnTSDB = isOnTSDB;
     }
-
-    public boolean isOnRDS() {
-        return isOnRDS;
-    }
-
-    public void setOnRDS(boolean isOnRDS) {
-        this.isOnRDS = isOnRDS;
-    }
-
-    public boolean isOnPolarX() {
-        return isOnPolarX;
-    }
-
-    public void setOnPolarX(boolean isOnPolarX) {
-        this.isOnPolarX = isOnPolarX;
-    }
-
 }
