@@ -154,7 +154,6 @@ public abstract class AbstractEventParser<EVENT> extends AbstractCanalLifeCycle 
             public void run() {
                 MDC.put("destination", String.valueOf(destination));
                 ErosaConnection erosaConnection = null;
-                boolean isMariaDB = false;
                 while (running) {
                     try {
                         // 开始执行replication

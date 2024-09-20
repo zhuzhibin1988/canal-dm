@@ -100,15 +100,15 @@ public class DamengConnection implements ErosaConnection {
     }
 
     @Override
-    public void dump(String archiveFilename,, Long scnPosition, SinkFunction func) throws IOException {
+    public void dump(String redoLogFilename, Long scnPosition, SinkFunction sinkFunction) throws IOException {
         try {
-            doDump(archiveFilename, scnPosition, func);
+            doDump(redoLogFilename, scnPosition, sinkFunction);
         } catch (Exception e) {
             throw new IOException(e);
         }
     }
 
-    public void doDump(String redoLogFilename, Long scnPosition, SinkFunction func) throws Exception {
+    public void doDump(String redoLogFilename, Long scnPosition, SinkFunction sinkFunction) throws Exception {
         DirectLogFetcher fetcher = new DirectLogFetcher(connector.getReceiveBufferSize());
         fetcher.start(this.connector);
         LogDecoder decoder = new LogDecoder(LogEvent.UNKNOWN_EVENT, LogEvent.ENUM_END_EVENT);

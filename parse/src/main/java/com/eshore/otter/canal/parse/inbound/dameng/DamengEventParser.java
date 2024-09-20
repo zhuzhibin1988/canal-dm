@@ -13,6 +13,8 @@ import com.alibaba.otter.canal.parse.support.AuthenticationInfo;
 import com.alibaba.otter.canal.protocol.CanalEntry;
 import com.alibaba.otter.canal.protocol.position.EntryPosition;
 import com.alibaba.otter.canal.protocol.position.LogPosition;
+import com.eshore.dbsync.logminer.event.dameng.RedoLog;
+import com.eshore.dbsync.logminer.event.dameng.Scn;
 import com.eshore.otter.canal.parse.inbound.dameng.dbsync.LogEventConvert;
 import com.eshore.otter.canal.parse.inbound.dameng.dbsync.TableMetaCache;
 import com.taobao.tddl.dbsync.binlog.LogEvent;
@@ -26,6 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TimerTask;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 基于向mysql server复制binlog实现
@@ -58,8 +61,6 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
     private int fallbackIntervalInSeconds = 60;       // 切换回退时间
 
     // update by yishun.chen,特殊异常处理参数
-    private int dumpErrorCount = 0;        // binlogDump失败异常计数
-    private int dumpErrorCountThreshold = 2;        // binlogDump失败异常计数阀值
     private boolean rdsOssMode = false;
     private boolean autoResetLatestPosMode = false;    // true:
     // binlog被删除之后，自动按最新的数据订阅
@@ -404,7 +405,6 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
                             && !logPosition.getPostion().getServerId().equals(findServerId(damengConnection));
                     if (case2) {
                         EntryPosition findPosition = fallbackFindByStartTimestamp(logPosition, damengConnection);
-                        dumpErrorCount = 0;
                         return findPosition;
                     }
                     // 处理 binlog 位点被删除的情况，提供自动重置到当前位点的功能
@@ -455,16 +455,16 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
 
     // 根据想要的position，可能这个position对应的记录为rowdata，需要找到事务头，避免丢数据
     // 主要考虑一个事务执行时间可能会几秒种，如果仅仅按照timestamp相同，则可能会丢失事务的前半部分数据
-    private Long findTransactionBeginPosition(ErosaConnection mysqlConnection, final EntryPosition entryPosition)
+    private Long findTransactionBeginPosition(ErosaConnection damengConnection, final EntryPosition entryPosition)
             throws IOException {
         // 针对开始的第一条为非Begin记录，需要从该binlog扫描
-        final java.util.concurrent.atomic.AtomicLong preTransactionStartPosition = new java.util.concurrent.atomic.AtomicLong(0L);
-        mysqlConnection.reconnect();
-        mysqlConnection.seek(entryPosition.getJournalName(), 4L, entryPosition.getGtid(), new SinkFunction<LogEvent>() {
+        final AtomicLong preTransactionStartPosition = new AtomicLong(0L);
+        damengConnection.reconnect();
+        damengConnection.seek(entryPosition.getJournalName(), Scn.valueOf(entryPosition.getPosition()), new SinkFunction<RedoLog>() {
 
             private LogPosition lastPosition;
 
-            public boolean sink(LogEvent event) {
+            public boolean sink(RedoLog event) {
                 try {
                     CanalEntry.Entry entry = parseAndProfilingIfNecessary(event, true);
                     if (entry == null) {
@@ -562,21 +562,6 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
         return null;
     }
 
-//    /**
-//     * 查询当前db的serverId信息
-//     */
-//    private Long findServerId(DamengConnection damengConnection) {
-//        try {
-//            ResultSetPacket packet = damengConnection.query("show variables like 'server_id'");
-//            List<String> fields = packet.getFieldValues();
-//            if (CollectionUtils.isEmpty(fields)) {
-//                throw new CanalParseException("command : show variables like 'server_id' has an error! pls check. you need (at least one of) the SUPER,REPLICATION CLIENT privilege(s) for this operation");
-//            }
-//            return Long.valueOf(fields.get(1));
-//        } catch (IOException e) {
-//            throw new CanalParseException("command : show variables like 'server_id' has an error!", e);
-//        }
-//    }
 
 //    /**
 //     * 查询当前的binlog位置
@@ -768,18 +753,6 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
         }
     }
 
-    @Override
-    protected void processDumpError(Throwable e) {
-        if (e instanceof IOException) {
-            String message = e.getMessage();
-            if (StringUtils.contains(message, "errno = 1236")) {
-                // 1236 errorCode代表ER_MASTER_FATAL_ERROR_READING_BINLOG
-                dumpErrorCount++;
-            }
-        }
-
-        super.processDumpError(e);
-    }
 
     // ===================== setter / getter ========================
 
@@ -835,20 +808,12 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
         this.haController = haController;
     }
 
-    public void setDumpErrorCountThreshold(int dumpErrorCountThreshold) {
-        this.dumpErrorCountThreshold = dumpErrorCountThreshold;
-    }
-
     public boolean isRdsOssMode() {
         return rdsOssMode;
     }
 
     public void setRdsOssMode(boolean rdsOssMode) {
         this.rdsOssMode = rdsOssMode;
-    }
-
-    public void setDumpErrorCount(int dumpErrorCount) {
-        this.dumpErrorCount = dumpErrorCount;
     }
 
     public boolean isAutoResetLatestPosMode() {

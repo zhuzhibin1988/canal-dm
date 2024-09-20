@@ -255,8 +255,6 @@ public class CanalInstanceWithManager extends com.alibaba.otter.canal.instance.m
             damengEventParser.setDetectingEnable(parameters.getDetectingEnable());
             damengEventParser.setDetectingSQL(parameters.getDetectingSQL());
             damengEventParser.setDetectingIntervalInSeconds(parameters.getDetectingIntervalInSeconds());
-            // 数据库信息参数
-            damengEventParser.setSlaveId(parameters.getSlaveId());
             if (!CollectionUtils.isEmpty(dbAddresses)) {
                 damengEventParser.setMasterInfo(new AuthenticationInfo(dbAddresses.get(0),
                         parameters.getDbUsername(),
