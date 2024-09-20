@@ -1,19 +1,12 @@
 package com.eshore.otter.canal.parse.inbound.dameng.dbsync;
 
-import com.alibaba.otter.canal.parse.driver.mysql.packets.server.FieldPacket;
-import com.alibaba.otter.canal.parse.driver.mysql.packets.server.ResultSetPacket;
 import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.TableMetaTSDB;
 import com.alibaba.otter.canal.protocol.position.EntryPosition;
 import com.alibaba.otter.canal.parse.exception.CanalParseException;
 import com.alibaba.otter.canal.parse.inbound.TableMeta;
 import com.alibaba.otter.canal.parse.inbound.TableMeta.FieldMeta;
-import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.DatabaseTableMeta;
-import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.MemoryTableMeta;
-import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.TableMetaTSDB;
 
-import com.eshore.otter.canal.parse.driver.dameng.SqlUtils;
 import com.eshore.otter.canal.parse.inbound.dameng.DamengConnection;
-import com.eshore.otter.canal.parse.inbound.dameng.ddl.DruidDdlParser;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -24,9 +17,7 @@ import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 处理table meta解析和缓存
@@ -83,7 +74,7 @@ public class TableMetaCache {
         String[] names = StringUtils.split(fullname, "`.`");
         String schema = names[0];
         String table = names[1].substring(0, names[1].length());
-        ResultSet rs = connection.query(SqlUtils.descTableStatement(schema, table));
+        ResultSet rs = connection.query(LogMinerSqls.descTableStatement(schema, table));
         return new TableMeta(schema, table, parseTableMeta(schema, table, rs));
     }
 
@@ -128,15 +119,16 @@ public class TableMetaCache {
             if (tableMeta == null) {
                 // 因为条件变化，可能第一次的tableMeta没取到，需要从db获取一次，并记录到snapshot中
                 String fullName = getFullName(schema, table);
-                ResultSetPacket packet = null;
+                ResultSet rs = null;
                 String createDDL = null;
                 try {
                     try {
-                        packet = connection.query("show create table " + fullName);
+                        LogMinerSqls.
+                        rs = connection.query("show create table " + fullName);
                     } catch (Exception e) {
                         // 尝试做一次retry操作
                         connection.reconnect();
-                        packet = connection.query("show create table " + fullName);
+                        rs = connection.query("show create table " + fullName);
                     }
                     if (packet.getFieldValues().size() > 0) {
                         createDDL = packet.getFieldValues().get(1);

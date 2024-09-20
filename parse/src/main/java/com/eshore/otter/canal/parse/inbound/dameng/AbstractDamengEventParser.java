@@ -10,8 +10,6 @@ import com.alibaba.otter.canal.parse.CanalEventParser;
 import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.DatabaseTableMeta;
 import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.DefaultTableMetaTSDBFactory;
 import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.TableMetaTSDB;
-import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.TableMetaTSDBFactory;
-import com.alibaba.otter.canal.parse.inbound.MultiStageCoprocessor;
 
 import com.eshore.otter.canal.parse.inbound.AbstractEventParser;
 import com.eshore.otter.canal.parse.inbound.RedoLogParser;
@@ -288,10 +286,6 @@ public abstract class AbstractDamengEventParser extends AbstractEventParser {
 
     public AtomicLong getEventsPublishBlockingTime() {
         return this.eventsPublishBlockingTime;
-    }
-
-    public AtomicLong getReceivedBinlogBytes() {
-        return this.receivedBinlogBytes;
     }
 
     public int getTsdbSnapshotInterval() {

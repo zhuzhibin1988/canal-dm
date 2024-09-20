@@ -287,7 +287,7 @@ public class CanalInstanceWithManager extends com.alibaba.otter.canal.instance.m
             damengEventParser.setProfilingEnabled(false);
             damengEventParser.setFilterTableError(parameters.getFilterTableError());
             damengEventParser.setParallel(parameters.getParallel());
-            damengEventParser.setIsGTIDMode(BooleanUtils.toBoolean(parameters.getGtidEnable()));
+//            damengEventParser.setIsGTIDMode(BooleanUtils.toBoolean(parameters.getGtidEnable()));
             damengEventParser.setMultiStreamEnable(parameters.getMultiStreamEnable());
             // tsdb
             if (parameters.getTsdbSnapshotInterval() != null) {

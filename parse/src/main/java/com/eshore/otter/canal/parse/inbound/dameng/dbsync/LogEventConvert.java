@@ -7,10 +7,10 @@ import com.alibaba.otter.canal.protocol.position.EntryPosition;
 import com.alibaba.otter.canal.parse.exception.CanalParseException;
 import com.alibaba.otter.canal.parse.inbound.TableMeta;
 import com.alibaba.otter.canal.parse.inbound.TableMeta.FieldMeta;
-import com.alibaba..logmnr.LogEvent;
-import com.eshore.otter.canal.parse.inbound.dameng.ddl.DdlResult;
-import com.eshore.otter.canal.parse.inbound.dameng.ddl.DruidDdlParser;
-import com.eshore.otter.canal.parse.inbound.dameng.ddl.SimpleDdlParser;
+.logmnr.LogEvent;
+import com.eshore.otter.canal.parse.inbound.dameng.parser.DdlResult;
+import com.eshore.otter.canal.parse.inbound.dameng.parser.DruidDdlParser;
+import com.eshore.otter.canal.parse.inbound.dameng.parser.SimpleDdlParser;
 
 import com.eshore.otter.canal.parse.inbound.RedoLogParser;
 

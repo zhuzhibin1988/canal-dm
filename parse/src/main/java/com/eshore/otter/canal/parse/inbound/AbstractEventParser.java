@@ -70,7 +70,7 @@ public abstract class AbstractEventParser<EVENT> extends AbstractCanalLifeCycle 
     protected volatile AuthenticationInfo runningInfo;
     protected String destination;
 
-    // binLogParser
+    // RedoLogParser
     protected RedoLogParser redoLogParser = null;
 
     protected Thread parseThread = null;

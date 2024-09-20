@@ -2,6 +2,7 @@ package com.eshore.otter.canal.parse.driver.dameng;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
 
 /**
  * 执行sql（包括start_logmnr,add_logfile,end_logmnr,查询归档日志）
@@ -25,7 +26,17 @@ public class DamengQueryExecutor {
         return rs;
     }
 
+    public List query(String sql, ResultSetProcessor resultSetProcessor) throws SQLException {
+        ResultSet rs = this.connector.connect().createStatement().executeQuery(sql);
+        return resultSetProcessor.process(rs);
+    }
+
     public void execute(String sql) throws SQLException {
         this.connector.connect().createStatement().execute(sql);
+    }
+
+    @FunctionalInterface
+    public interface ResultSetProcessor<T> {
+        List<T> process(ResultSet rs);
     }
 }

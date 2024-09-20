@@ -175,9 +175,8 @@ public class CanalServerWithEmbedded extends com.alibaba.otter.canal.server.embe
                         positionRanges));
             }
 
-            Events<Event> events = null;
             Position start = canalInstance.getMetaManager().getCursor(clientIdentity);
-            events = getEvents(canalInstance.getEventStore(), start, batchSize, timeout, unit);
+            Events<Event> events = getEvents(canalInstance.getEventStore(), start, batchSize, timeout, unit);
 
             if (CollectionUtils.isEmpty(events.getEvents())) {
                 logger.debug("get successfully, clientId:{} batchSize:{} but result is null",
@@ -485,7 +484,6 @@ public class CanalServerWithEmbedded extends com.alibaba.otter.canal.server.embe
         if (eventStore instanceof MemoryEventStoreWithBuffer) {
             return ((MemoryEventStoreWithBuffer) eventStore).isRaw();
         }
-
         return true;
     }
 

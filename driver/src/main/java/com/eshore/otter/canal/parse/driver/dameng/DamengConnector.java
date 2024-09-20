@@ -10,7 +10,9 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.concurrent.ThreadSafe;
 import java.lang.reflect.InvocationTargetException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.sql.*;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -46,6 +48,7 @@ public class DamengConnector implements AutoCloseable {
      */
     private final DamengDatabaseVersion databaseVersion;
 
+
     private Properties prop;
     private ConnectionFactory factory;
     private Connection conn;
@@ -54,6 +57,7 @@ public class DamengConnector implements AutoCloseable {
     public DamengConnector(InetSocketAddress socketAddress,
                            String username,
                            String password) {
+
         this.prop = new Properties();
         this.prop.put(DamengJdbcConfiguration.HOSTNAME, socketAddress.getHostName());
         this.prop.put(DamengJdbcConfiguration.PORT, socketAddress.getPort());
@@ -128,6 +132,12 @@ public class DamengConnector implements AutoCloseable {
         connect();
     }
 
+    public InetAddress getAddress() {
+        InetSocketAddress socketAddress = new InetSocketAddress(this.prop.getProperty(DamengJdbcConfiguration.HOSTNAME),
+                Integer.parseInt(this.prop.getProperty(DamengJdbcConfiguration.PORT)));
+        return socketAddress.getAddress();
+    }
+
     private DamengDatabaseVersion resolveDmDatabaseVersion() {
         String versionStr = null;
         try {
@@ -147,7 +157,7 @@ public class DamengConnector implements AutoCloseable {
 
         return DamengDatabaseVersion.parse(versionStr);
     }
-    
+
     @Override
     public void close() throws Exception {
         disconnect();

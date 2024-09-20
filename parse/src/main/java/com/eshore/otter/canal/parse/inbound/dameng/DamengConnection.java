@@ -1,13 +1,11 @@
 package com.eshore.otter.canal.parse.inbound.dameng;
 
-import com.alibaba.otter.canal.parse.driver.mysql.MysqlQueryExecutor;
-import com.alibaba.otter.canal.parse.driver.mysql.MysqlUpdateExecutor;
 import com.alibaba.otter.canal.parse.driver.mysql.packets.GTIDSet;
-import com.alibaba.otter.canal.parse.driver.mysql.packets.server.ResultSetPacket;
 import com.eshore.otter.canal.parse.driver.dameng.DamengConnector;
 import com.eshore.otter.canal.parse.driver.dameng.DamengQueryExecutor;
 import com.eshore.otter.canal.parse.driver.dameng.DamengUpdateExecutor;
 import com.eshore.otter.canal.parse.inbound.dameng.dbsync.DirectLogFetcher;
+import com.eshore.dbsync.logminer.LogDecoder;
 
 import com.alibaba.otter.canal.parse.exception.CanalParseException;
 import com.alibaba.otter.canal.parse.inbound.ErosaConnection;
@@ -16,10 +14,7 @@ import com.alibaba.otter.canal.parse.inbound.SinkFunction;
 import com.alibaba.otter.canal.parse.support.AuthenticationInfo;
 
 import com.taobao.tddl.dbsync.binlog.LogContext;
-import com.taobao.tddl.dbsync.binlog.LogDecoder;
 import com.taobao.tddl.dbsync.binlog.LogEvent;
-import com.taobao.tddl.dbsync.binlog.event.FormatDescriptionLogEvent;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,7 +23,6 @@ import java.net.InetSocketAddress;
 import java.nio.charset.Charset;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.List;
 
 public class DamengConnection implements ErosaConnection {
 
@@ -82,7 +76,12 @@ public class DamengConnection implements ErosaConnection {
 
 
     public boolean isConnected() {
-        return this.connector.isConnected();
+        try {
+            return this.connector.isConnected();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
     public ResultSet query(String sql) throws SQLException {
@@ -94,23 +93,28 @@ public class DamengConnection implements ErosaConnection {
         DamengUpdateExecutor exector = new DamengUpdateExecutor(this.connector);
         exector.update(sql);
     }
-    
+
     @Override
     public void seek(String s, Long aLong, String s1, SinkFunction sinkFunction) throws IOException {
         throw new NullPointerException("Not implement yet");
     }
 
-    public void dump(String archiveFilename, Long scnPosition, SinkFunction func) throws IOException {
+    @Override
+    public void dump(String archiveFilename,, Long scnPosition, SinkFunction func) throws IOException {
+        try {
+            doDump(archiveFilename, scnPosition, func);
+        } catch (Exception e) {
+            throw new IOException(e);
+        }
+    }
+
+    public void doDump(String redoLogFilename, Long scnPosition, SinkFunction func) throws Exception {
         DirectLogFetcher fetcher = new DirectLogFetcher(connector.getReceiveBufferSize());
         fetcher.start(this.connector);
         LogDecoder decoder = new LogDecoder(LogEvent.UNKNOWN_EVENT, LogEvent.ENUM_END_EVENT);
         LogContext context = new LogContext();
-        context.setFormatDescription(new FormatDescriptionLogEvent(4, binlogChecksum));
         while (fetcher.fetch()) {
-            accumulateReceivedBytes(fetcher.limit());
-            LogEvent event = null;
-            event = decoder.decode(fetcher, context);
-
+            LogEvent event = decoder.decode(fetcher, context);
             if (event == null) {
                 throw new CanalParseException("parse failed");
             }
@@ -118,35 +122,31 @@ public class DamengConnection implements ErosaConnection {
             if (!func.sink(event)) {
                 break;
             }
-
-            if (event.getSemival() == 1) {
-                sendSemiAck(context.getLogPosition().getFileName(), context.getLogPosition().getPosition());
-            }
         }
+    }
+
+    @Override
+    public void dump(GTIDSet gtidSet, SinkFunction func) {
         throw new NullPointerException("Not implement yet");
     }
 
     @Override
-    public void dump(GTIDSet gtidSet, SinkFunction func) throws IOException {
-        throw new NullPointerException("Not implement yet");
-    }
-
-    public void dump(long timestamp, SinkFunction func) throws IOException {
+    public void dump(long timestamp, SinkFunction func) {
         throw new NullPointerException("Not implement yet");
     }
 
     @Override
-    public void dump(String binlogfilename, Long binlogPosition, MultiStageCoprocessor coprocessor) throws IOException {
+    public void dump(String binlogfilename, Long binlogPosition, MultiStageCoprocessor coprocessor) {
         throw new NullPointerException("Not implement yet");
     }
 
     @Override
-    public void dump(long timestamp, MultiStageCoprocessor coprocessor) throws IOException {
+    public void dump(long timestamp, MultiStageCoprocessor coprocessor) {
         throw new NullPointerException("Not implement yet");
     }
 
     @Override
-    public void dump(GTIDSet gtidSet, MultiStageCoprocessor coprocessor) throws IOException {
+    public void dump(GTIDSet gtidSet, MultiStageCoprocessor coprocessor) {
         throw new NullPointerException("Not implement yet");
     }
 
@@ -156,18 +156,9 @@ public class DamengConnection implements ErosaConnection {
     }
 
     @Override
-    public long queryServerId() throws IOException {
+    public long queryServerId() {
         throw new NullPointerException("Not implement yet");
     }
-
-    // ====================== help method ====================
-
-
-//    private void accumulateReceivedBytes(long x) {
-//        if (receivedBinlogBytes != null) {
-//            receivedBinlogBytes.addAndGet(x);
-//        }
-//    }
 
     // ================== setter / getter ===================
 

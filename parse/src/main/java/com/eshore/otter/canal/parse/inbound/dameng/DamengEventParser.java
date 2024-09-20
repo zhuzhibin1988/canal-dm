@@ -3,29 +3,18 @@ package com.eshore.otter.canal.parse.inbound.dameng;
 import com.alibaba.otter.canal.common.utils.JsonUtils;
 import com.alibaba.otter.canal.parse.CanalEventParser;
 import com.alibaba.otter.canal.parse.CanalHASwitchable;
-import com.alibaba.otter.canal.parse.driver.mysql.packets.server.FieldPacket;
-import com.alibaba.otter.canal.parse.driver.mysql.packets.server.ResultSetPacket;
 import com.alibaba.otter.canal.parse.exception.CanalParseException;
 import com.alibaba.otter.canal.parse.ha.CanalHAController;
 import com.alibaba.otter.canal.parse.inbound.ErosaConnection;
+import com.alibaba.otter.canal.parse.inbound.HeartBeatCallback;
 import com.alibaba.otter.canal.parse.inbound.SinkFunction;
+import com.alibaba.otter.canal.parse.inbound.mysql.tsdb.DatabaseTableMeta;
 import com.alibaba.otter.canal.parse.support.AuthenticationInfo;
 import com.alibaba.otter.canal.protocol.CanalEntry;
 import com.alibaba.otter.canal.protocol.position.EntryPosition;
 import com.alibaba.otter.canal.protocol.position.LogPosition;
-import com.eshore.otter.canal.parse.CanalEventParser;
-import com.eshore.otter.canal.parse.CanalHASwitchable;
-import com.eshore.otter.canal.parse.exception.CanalParseException;
-import com.eshore.otter.canal.parse.ha.CanalHAController;
-import com.eshore.otter.canal.parse.inbound.ErosaConnection;
-import com.eshore.otter.canal.parse.inbound.HeartBeatCallback;
-import com.eshore.otter.canal.parse.inbound.SinkFunction;
 import com.eshore.otter.canal.parse.inbound.dameng.dbsync.LogEventConvert;
 import com.eshore.otter.canal.parse.inbound.dameng.dbsync.TableMetaCache;
-import com.eshore.otter.canal.parse.inbound.dameng.tsdb.DatabaseTableMeta;
-import com.eshore.otter.canal.parse.inbound.mysql.MysqlConnection.BinlogFormat;
-import com.eshore.otter.canal.parse.inbound.mysql.MysqlConnection.BinlogImage;
-import com.eshore.otter.canal.parse.support.AuthenticationInfo;
 import com.taobao.tddl.dbsync.binlog.LogEvent;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.util.CollectionUtils;
@@ -78,7 +67,7 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
     private boolean multiStreamEnable;//support for polardbx binlog-x
 
     protected ErosaConnection buildErosaConnection() {
-        return buildMysqlConnection(this.runningInfo);
+        return buildDamengConnection(this.runningInfo);
     }
 
     protected void preDump(ErosaConnection connection) {
@@ -86,42 +75,12 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
             throw new CanalParseException("Unsupported connection type : " + connection.getClass().getSimpleName());
         }
 
-        if (binlogParser != null && RedoLogParser instanceof LogEventConvert) {
+        if (redoLogParser != null && redoLogParser instanceof LogEventConvert) {
             metaConnection = (DamengConnection) connection.fork();
             try {
                 metaConnection.connect();
             } catch (IOException e) {
                 throw new CanalParseException(e);
-            }
-
-            if (supportBinlogFormats != null && supportBinlogFormats.length > 0) {
-                BinlogFormat format = ((DamengConnection) metaConnection).getBinlogFormat();
-                boolean found = false;
-                for (BinlogFormat supportFormat : supportBinlogFormats) {
-                    if (supportFormat != null && format == supportFormat) {
-                        found = true;
-                        break;
-                    }
-                }
-
-                if (!found) {
-                    throw new CanalParseException("Unsupported BinlogFormat " + format);
-                }
-            }
-
-            if (supportBinlogImages != null && supportBinlogImages.length > 0) {
-                BinlogImage image = ((DamengConnection) metaConnection).getBinlogImage();
-                boolean found = false;
-                for (BinlogImage supportImage : supportBinlogImages) {
-                    if (supportImage != null && image == supportImage) {
-                        found = true;
-                        break;
-                    }
-                }
-
-                if (!found) {
-                    throw new CanalParseException("Unsupported BinlogImage " + image);
-                }
             }
 
             if (tableMetaTSDB != null && tableMetaTSDB instanceof DatabaseTableMeta) {
@@ -134,7 +93,7 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
             }
 
             tableMetaCache = new TableMetaCache(metaConnection, tableMetaTSDB);
-            ((LogEventConvert) binlogParser).setTableMetaCache(tableMetaCache);
+            ((LogEventConvert) redoLogParser).setTableMetaCache(tableMetaCache);
         }
     }
 
@@ -172,8 +131,7 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
             try {
                 metaConnection.disconnect();
             } catch (IOException e) {
-                logger.error("ERROR # disconnect meta connection for address:{}", metaConnection.getConnector()
-                        .getAddress(), e);
+                logger.error("ERROR # disconnect meta connection for address:{}", metaConnection.getConnector().getAddress(), e);
             }
         }
 
@@ -191,7 +149,7 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
 
         // 开始mysql心跳sql
         if (detectingEnable && StringUtils.isNotBlank(detectingSQL)) {
-            return new MysqlDetectingTimeTask((DamengConnection) connection.fork());
+            return new DamengDetectingTimeTask((DamengConnection) connection.fork());
         } else {
             return super.buildHeartBeatTimeTask(connection);
         }
@@ -201,12 +159,12 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
     protected void stopHeartBeat() {
         TimerTask heartBeatTimerTask = this.heartBeatTimerTask;
         super.stopHeartBeat();
-        if (heartBeatTimerTask != null && heartBeatTimerTask instanceof MysqlDetectingTimeTask) {
-            DamengConnection mysqlConnection = ((MysqlDetectingTimeTask) heartBeatTimerTask).getMysqlConnection();
+        if (heartBeatTimerTask != null && heartBeatTimerTask instanceof DamengDetectingTimeTask) {
+            DamengConnection damengConnection = ((DamengDetectingTimeTask) heartBeatTimerTask).getDamengConnection();
             try {
-                mysqlConnection.disconnect();
+                damengConnection.disconnect();
             } catch (IOException e) {
-                logger.error("ERROR # disconnect heartbeat connection for address:{}", mysqlConnection.getConnector()
+                logger.error("ERROR # disconnect heartbeat connection for address:{}", damengConnection.getConnector()
                         .getAddress(), e);
             }
         }
@@ -218,22 +176,22 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
      * @author jianghang 2012-7-6 下午02:50:15
      * @version 1.0.0
      */
-    class MysqlDetectingTimeTask extends TimerTask {
+    class DamengDetectingTimeTask extends TimerTask {
 
         private boolean reconnect = false;
-        private DamengConnection mysqlConnection;
+        private DamengConnection damengConnection;
 
-        public MysqlDetectingTimeTask(DamengConnection mysqlConnection) {
-            this.mysqlConnection = mysqlConnection;
+        public DamengDetectingTimeTask(DamengConnection damengConnection) {
+            this.damengConnection = damengConnection;
         }
 
         public void run() {
             try {
                 if (reconnect) {
                     reconnect = false;
-                    mysqlConnection.reconnect();
-                } else if (!mysqlConnection.isConnected()) {
-                    mysqlConnection.connect();
+                    damengConnection.reconnect();
+                } else if (!damengConnection.isConnected()) {
+                    damengConnection.connect();
                 }
                 long startTime = System.currentTimeMillis();
 
@@ -242,9 +200,9 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
                         || StringUtils.startsWithIgnoreCase(detectingSQL.trim(), "show")
                         || StringUtils.startsWithIgnoreCase(detectingSQL.trim(), "explain")
                         || StringUtils.startsWithIgnoreCase(detectingSQL.trim(), "desc")) {
-                    mysqlConnection.query(detectingSQL);
+                    damengConnection.query(detectingSQL);
                 } else {
-                    mysqlConnection.update(detectingSQL);
+                    damengConnection.update(detectingSQL);
                 }
 
                 long costTime = System.currentTimeMillis() - startTime;
@@ -261,8 +219,8 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
 
         }
 
-        public DamengConnection getMysqlConnection() {
-            return mysqlConnection;
+        public DamengConnection getDamengConnection() {
+            return damengConnection;
         }
     }
 
@@ -307,59 +265,12 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
     private DamengConnection buildDamengConnection(AuthenticationInfo runningInfo) {
         DamengConnection connection = new DamengConnection(runningInfo.getAddress(),
                 runningInfo.getUsername(),
-                runningInfo.getPassword(),
-                connectionCharsetNumber,
-                runningInfo.getDefaultDatabaseName());
-        connection.getConnector().setReceiveBufferSize(receiveBufferSize);
-        connection.getConnector().setSendBufferSize(sendBufferSize);
-        connection.getConnector().setSoTimeout(defaultConnectionTimeoutInSeconds * 1000);
+                runningInfo.getPassword());
         connection.setCharset(connectionCharset);
-        connection.setReceivedBinlogBytes(receivedBinlogBytes);
-        // 随机生成slaveId
-        if (this.slaveId <= 0) {
-            this.slaveId = generateUniqueServerId();
-        }
-        connection.setSlaveId(this.slaveId);
         return connection;
     }
 
-    private final long generateUniqueServerId() {
-        try {
-            // a=`echo $masterip|cut -d\. -f1`
-            // b=`echo $masterip|cut -d\. -f2`
-            // c=`echo $masterip|cut -d\. -f3`
-            // d=`echo $masterip|cut -d\. -f4`
-            // #server_id=`expr $a \* 256 \* 256 \* 256 + $b \* 256 \* 256 + $c
-            // \* 256 + $d `
-            // #server_id=$b$c$d
-            // server_id=`expr $b \* 256 \* 256 + $c \* 256 + $d `
-            InetAddress localHost = InetAddress.getLocalHost();
-            byte[] addr = localHost.getAddress();
-            int salt = (destination != null) ? destination.hashCode() : 0;
-            return ((0x7f & salt) << 24) + ((0xff & (int) addr[1]) << 16) // NL
-                    + ((0xff & (int) addr[2]) << 8) // NL
-                    + (0xff & (int) addr[3]);
-        } catch (UnknownHostException e) {
-            throw new CanalParseException("Unknown host", e);
-        }
-    }
-
     protected EntryPosition findStartPosition(ErosaConnection connection) throws IOException {
-        if (isGTIDMode()) {
-            // GTID模式下，CanalLogPositionManager里取最后的gtid，没有则取instance配置中的
-            LogPosition logPosition = getLogPositionManager().getLatestIndexBy(destination);
-            if (logPosition != null) {
-                // 如果以前是非GTID模式，后来调整为了GTID模式，那么为了保持兼容，需要判断gtid是否为空
-                if (StringUtils.isNotEmpty(logPosition.getPostion().getGtid())) {
-                    return logPosition.getPostion();
-                }
-            } else {
-                if (masterPosition != null && StringUtils.isNotEmpty(masterPosition.getGtid())) {
-                    return masterPosition;
-                }
-            }
-        }
-
         EntryPosition startPosition = findStartPositionInternal(connection);
         if (needTransactionPosition.get()) {
             logger.warn("prepare to find last position : {}", startPosition.toString());
@@ -376,17 +287,17 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
     }
 
     protected EntryPosition findEndPosition(ErosaConnection connection) throws IOException {
-        DamengConnection mysqlConnection = (DamengConnection) connection;
-        EntryPosition endPosition = findEndPosition(mysqlConnection);
+        DamengConnection damengConnection = (DamengConnection) connection;
+        EntryPosition endPosition = findEndPosition(damengConnection);
         return endPosition;
     }
 
-    protected EntryPosition findEndPositionWithMasterIdAndTimestamp(DamengConnection connection) {
-        DamengConnection mysqlConnection = (DamengConnection) connection;
-        final EntryPosition endPosition = findEndPosition(mysqlConnection);
-        if (tableMetaTSDB != null || isGTIDMode()) {
+    protected EntryPosition findEndPositionWithMasterIdAndTimestamp(ErosaConnection connection) {
+        DamengConnection damengConnection = (DamengConnection) connection;
+        final EntryPosition endPosition = findEndPosition(damengConnection);
+        if (tableMetaTSDB != null) {
             long startTimestamp = System.currentTimeMillis();
-            return findAsPerTimestampInSpecificLogFile(mysqlConnection,
+            return findAsPerTimestampInSpecificLogFile(damengConnection,
                     startTimestamp,
                     endPosition,
                     endPosition.getJournalName(),
@@ -396,12 +307,12 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
         }
     }
 
-    protected EntryPosition findPositionWithMasterIdAndTimestamp(DamengConnection connection, EntryPosition fixedPosition) {
-        DamengConnection mysqlConnection = (DamengConnection) connection;
+    protected EntryPosition findPositionWithMasterIdAndTimestamp(ErosaConnection connection, EntryPosition fixedPosition) {
+        DamengConnection damengConnection = (DamengConnection) connection;
         if (tableMetaTSDB != null && (fixedPosition.getTimestamp() == null || fixedPosition.getTimestamp() <= 0)) {
             // 使用一个未来极大的时间，基于位点进行定位
             long startTimestamp = System.currentTimeMillis() + 102L * 365 * 24 * 3600 * 1000; // 当前时间的未来102年
-            EntryPosition entryPosition = findAsPerTimestampInSpecificLogFile(mysqlConnection,
+            EntryPosition entryPosition = findAsPerTimestampInSpecificLogFile(damengConnection,
                     startTimestamp,
                     fixedPosition,
                     fixedPosition.getJournalName(),
@@ -421,16 +332,16 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
         LogPosition logPosition = logPositionManager.getLatestIndexBy(destination);
         if (logPosition == null) {// 找不到历史成功记录
             EntryPosition entryPosition = null;
-            if (masterInfo != null && mysqlConnection.getConnector().getAddress().equals(masterInfo.getAddress())) {
+            if (masterInfo != null && damengConnection.getConnector().getAddress().equals(masterInfo.getAddress())) {
                 entryPosition = masterPosition;
             } else if (standbyInfo != null
-                    && mysqlConnection.getConnector().getAddress().equals(standbyInfo.getAddress())) {
+                    && damengConnection.getConnector().getAddress().equals(standbyInfo.getAddress())) {
                 entryPosition = standbyPosition;
             }
 
             if (entryPosition == null) {
                 entryPosition =
-                        findEndPositionWithMasterIdAndTimestamp(mysqlConnection); // 默认从当前最后一个位置进行消费
+                        findEndPositionWithMasterIdAndTimestamp(damengConnection); // 默认从当前最后一个位置进行消费
             }
 
             // 判断一下是否需要按时间订阅
@@ -439,15 +350,15 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
                 if (entryPosition.getTimestamp() != null && entryPosition.getTimestamp() > 0L) {
                     logger.warn("prepare to find start position {}:{}:{}",
                             new Object[]{"", "", entryPosition.getTimestamp()});
-                    return findByStartTimeStamp(mysqlConnection, entryPosition.getTimestamp());
+                    return findByStartTimeStamp(damengConnection, entryPosition.getTimestamp());
                 } else {
                     logger.warn("prepare to find start position just show master status");
-                    return findEndPositionWithMasterIdAndTimestamp(mysqlConnection); // 默认从当前最后一个位置进行消费
+                    return findEndPositionWithMasterIdAndTimestamp(damengConnection); // 默认从当前最后一个位置进行消费
                 }
             } else {
                 if (entryPosition.getPosition() != null && entryPosition.getPosition() > 0L) {
                     // 如果指定binlogName + offest，直接返回
-                    entryPosition = findPositionWithMasterIdAndTimestamp(mysqlConnection, entryPosition);
+                    entryPosition = findPositionWithMasterIdAndTimestamp(damengConnection, entryPosition);
                     logger.warn("prepare to find start position {}:{}:{}",
                             new Object[]{entryPosition.getJournalName(), entryPosition.getPosition(),
                                     entryPosition.getTimestamp()});
@@ -457,11 +368,11 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
                     if (entryPosition.getTimestamp() != null && entryPosition.getTimestamp() > 0L) {
                         // 如果指定binlogName +
                         // timestamp，但没有指定对应的offest，尝试根据时间找一下offest
-                        EntryPosition endPosition = findEndPosition(mysqlConnection);
+                        EntryPosition endPosition = findEndPosition(damengConnection);
                         if (endPosition != null) {
                             logger.warn("prepare to find start position {}:{}:{}",
                                     new Object[]{entryPosition.getJournalName(), "", entryPosition.getTimestamp()});
-                            specificLogFilePosition = findAsPerTimestampInSpecificLogFile(mysqlConnection,
+                            specificLogFilePosition = findAsPerTimestampInSpecificLogFile(damengConnection,
                                     entryPosition.getTimestamp(),
                                     endPosition,
                                     entryPosition.getJournalName(),
@@ -483,16 +394,16 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
                 }
             }
         } else {
-            if (logPosition.getIdentity().getSourceAddress().equals(mysqlConnection.getConnector().getAddress())) {
+            if (logPosition.getIdentity().getSourceAddress().equals(damengConnection.getConnector().getAddress())) {
                 if (dumpErrorCountThreshold >= 0 && dumpErrorCount > dumpErrorCountThreshold) {
                     // binlog定位位点失败,可能有两个原因:
                     // 1. binlog位点被删除
                     // 2.vip模式的mysql,发生了主备切换,判断一下serverId是否变化,针对这种模式可以发起一次基于时间戳查找合适的binlog位点
                     boolean case2 = (standbyInfo == null || standbyInfo.getAddress() == null)
                             && logPosition.getPostion().getServerId() != null
-                            && !logPosition.getPostion().getServerId().equals(findServerId(mysqlConnection));
+                            && !logPosition.getPostion().getServerId().equals(findServerId(damengConnection));
                     if (case2) {
-                        EntryPosition findPosition = fallbackFindByStartTimestamp(logPosition, mysqlConnection);
+                        EntryPosition findPosition = fallbackFindByStartTimestamp(logPosition, damengConnection);
                         dumpErrorCount = 0;
                         return findPosition;
                     }
@@ -501,7 +412,7 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
                     // 丢失调到最新位点也即意味着数据丢失
                     if (isAutoResetLatestPosMode()) {
                         dumpErrorCount = 0;
-                        return findEndPosition(mysqlConnection);
+                        return findEndPosition(damengConnection);
                     }
                     Long timestamp = logPosition.getPostion().getTimestamp();
                     if (isRdsOssMode() && (timestamp != null && timestamp > 0)) {
@@ -511,7 +422,7 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
                 } else if (StringUtils.isBlank(logPosition.getPostion().getJournalName())
                         && logPosition.getPostion().getPosition() <= 0
                         && logPosition.getPostion().getTimestamp() > 0) {
-                    return fallbackFindByStartTimestamp(logPosition, mysqlConnection);
+                    return fallbackFindByStartTimestamp(logPosition, damengConnection);
                 }
                 // 其余情况
                 logger.warn("prepare to find start position just last position\n {}",
@@ -522,7 +433,7 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
                 long newStartTimestamp = logPosition.getPostion().getTimestamp() - fallbackIntervalInSeconds * 1000;
                 logger.warn("prepare to find start position by switch {}:{}:{}", new Object[]{"", "",
                         logPosition.getPostion().getTimestamp()});
-                return findByStartTimeStamp(mysqlConnection, newStartTimestamp);
+                return findByStartTimeStamp(damengConnection, newStartTimestamp);
             }
         }
     }
@@ -590,9 +501,9 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
     }
 
     // 根据时间查找binlog位置
-    private EntryPosition findByStartTimeStamp(DamengConnection mysqlConnection, Long startTimestamp) {
-        EntryPosition endPosition = findEndPosition(mysqlConnection);
-        EntryPosition startPosition = findStartPosition(mysqlConnection);
+    private EntryPosition findByStartTimeStamp(DamengConnection damengConnection, Long startTimestamp) {
+        EntryPosition endPosition = findEndPosition(damengConnection);
+        EntryPosition startPosition = findStartPosition(damengConnection);
         String maxBinlogFileName = endPosition.getJournalName();
         String minBinlogFileName = startPosition.getJournalName();
         logger.info("show master status to set search end condition:{} ", endPosition);
@@ -600,7 +511,7 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
         boolean shouldBreak = false;
         while (running && !shouldBreak) {
             try {
-                EntryPosition entryPosition = findAsPerTimestampInSpecificLogFile(mysqlConnection,
+                EntryPosition entryPosition = findAsPerTimestampInSpecificLogFile(damengConnection,
                         startTimestamp,
                         endPosition,
                         startSearchBinlogFile,
@@ -651,121 +562,121 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
         return null;
     }
 
-    /**
-     * 查询当前db的serverId信息
-     */
-    private Long findServerId(DamengConnection mysqlConnection) {
-        try {
-            ResultSetPacket packet = mysqlConnection.query("show variables like 'server_id'");
-            List<String> fields = packet.getFieldValues();
-            if (CollectionUtils.isEmpty(fields)) {
-                throw new CanalParseException("command : show variables like 'server_id' has an error! pls check. you need (at least one of) the SUPER,REPLICATION CLIENT privilege(s) for this operation");
-            }
-            return Long.valueOf(fields.get(1));
-        } catch (IOException e) {
-            throw new CanalParseException("command : show variables like 'server_id' has an error!", e);
-        }
-    }
+//    /**
+//     * 查询当前db的serverId信息
+//     */
+//    private Long findServerId(DamengConnection damengConnection) {
+//        try {
+//            ResultSetPacket packet = damengConnection.query("show variables like 'server_id'");
+//            List<String> fields = packet.getFieldValues();
+//            if (CollectionUtils.isEmpty(fields)) {
+//                throw new CanalParseException("command : show variables like 'server_id' has an error! pls check. you need (at least one of) the SUPER,REPLICATION CLIENT privilege(s) for this operation");
+//            }
+//            return Long.valueOf(fields.get(1));
+//        } catch (IOException e) {
+//            throw new CanalParseException("command : show variables like 'server_id' has an error!", e);
+//        }
+//    }
 
-    /**
-     * 查询当前的binlog位置
-     */
-    private EntryPosition findEndPosition(DamengConnection mysqlConnection) {
-        try {
-            String showSql = multiStreamEnable ? "show master status with " + destination : "show master status";
-            ResultSetPacket packet = mysqlConnection.query(showSql);
-            List<String> fields = packet.getFieldValues();
-            if (CollectionUtils.isEmpty(fields)) {
-                throw new CanalParseException(
-                        "command : 'show master status' has an error! pls check. you need (at least one of) the SUPER,REPLICATION CLIENT privilege(s) for this operation");
-            }
-            EntryPosition endPosition = new EntryPosition(fields.get(0), Long.valueOf(fields.get(1)));
-            if (isGTIDMode() && fields.size() > 4) {
-                endPosition.setGtid(fields.get(4));
-            }
-            // MariaDB 无法通过`show master status`获取 gtid
-            if (mysqlConnection.isMariaDB() && isGTIDMode()) {
-                ResultSetPacket gtidPacket = mysqlConnection.query("SELECT @@global.gtid_binlog_pos");
-                List<String> gtidFields = gtidPacket.getFieldValues();
-                if (!CollectionUtils.isEmpty(gtidFields) && gtidFields.size() > 0) {
-                    endPosition.setGtid(gtidFields.get(0));
-                }
-            }
-            return endPosition;
-        } catch (IOException e) {
-            throw new CanalParseException("command : 'show master status' has an error!", e);
-        }
-    }
+//    /**
+//     * 查询当前的binlog位置
+//     */
+//    private EntryPosition findEndPosition(DamengConnection damengConnection) {
+//        try {
+//            String showSql = multiStreamEnable ? "show master status with " + destination : "show master status";
+//            ResultSetPacket packet = damengConnection.query(showSql);
+//            List<String> fields = packet.getFieldValues();
+//            if (CollectionUtils.isEmpty(fields)) {
+//                throw new CanalParseException(
+//                        "command : 'show master status' has an error! pls check. you need (at least one of) the SUPER,REPLICATION CLIENT privilege(s) for this operation");
+//            }
+//            EntryPosition endPosition = new EntryPosition(fields.get(0), Long.valueOf(fields.get(1)));
+//            if (isGTIDMode() && fields.size() > 4) {
+//                endPosition.setGtid(fields.get(4));
+//            }
+//            // MariaDB 无法通过`show master status`获取 gtid
+//            if (damengConnection.isMariaDB() && isGTIDMode()) {
+//                ResultSetPacket gtidPacket = damengConnection.query("SELECT @@global.gtid_binlog_pos");
+//                List<String> gtidFields = gtidPacket.getFieldValues();
+//                if (!CollectionUtils.isEmpty(gtidFields) && gtidFields.size() > 0) {
+//                    endPosition.setGtid(gtidFields.get(0));
+//                }
+//            }
+//            return endPosition;
+//        } catch (IOException e) {
+//            throw new CanalParseException("command : 'show master status' has an error!", e);
+//        }
+//    }
 
-    /**
-     * 查询当前的binlog位置
-     */
-    private EntryPosition findStartPosition(DamengConnection mysqlConnection) {
-        try {
-            String showSql = multiStreamEnable ?
-                    "show binlog events with " + destination + " limit 1" : "show binlog events limit 1";
-            ResultSetPacket packet = mysqlConnection.query(showSql);
-            List<String> fields = packet.getFieldValues();
-            if (CollectionUtils.isEmpty(fields)) {
-                throw new CanalParseException(
-                        "command : 'show binlog events limit 1' has an error! pls check. you need (at least one of) the SUPER,REPLICATION CLIENT privilege(s) for this operation");
-            }
-            EntryPosition endPosition = new EntryPosition(fields.get(0), Long.valueOf(fields.get(1)));
-            return endPosition;
-        } catch (IOException e) {
-            throw new CanalParseException("command : 'show binlog events limit 1' has an error!", e);
-        }
+//    /**
+//     * 查询当前的binlog位置
+//     */
+//    private EntryPosition findStartPosition(DamengConnection damengConnection) {
+//        try {
+//            String showSql = multiStreamEnable ?
+//                    "show binlog events with " + destination + " limit 1" : "show binlog events limit 1";
+//            ResultSetPacket packet = damengConnection.query(showSql);
+//            List<String> fields = packet.getFieldValues();
+//            if (CollectionUtils.isEmpty(fields)) {
+//                throw new CanalParseException(
+//                        "command : 'show binlog events limit 1' has an error! pls check. you need (at least one of) the SUPER,REPLICATION CLIENT privilege(s) for this operation");
+//            }
+//            EntryPosition endPosition = new EntryPosition(fields.get(0), Long.valueOf(fields.get(1)));
+//            return endPosition;
+//        } catch (IOException e) {
+//            throw new CanalParseException("command : 'show binlog events limit 1' has an error!", e);
+//        }
+//
+//    }
 
-    }
-
-    /**
-     * 查询当前的slave视图的binlog位置
-     */
-    @SuppressWarnings("unused")
-    private SlaveEntryPosition findSlavePosition(DamengConnection mysqlConnection) {
-        try {
-            ResultSetPacket packet = mysqlConnection.query("show slave status");
-            List<FieldPacket> names = packet.getFieldDescriptors();
-            List<String> fields = packet.getFieldValues();
-            if (CollectionUtils.isEmpty(fields)) {
-                return null;
-            }
-
-            int i = 0;
-            Map<String, String> maps = new HashMap<>(names.size(), 1f);
-            for (FieldPacket name : names) {
-                maps.put(name.getName(), fields.get(i));
-                i++;
-            }
-
-            String errno = maps.get("Last_Errno");
-            String slaveIORunning = maps.get("Slave_IO_Running"); // Slave_SQL_Running
-            String slaveSQLRunning = maps.get("Slave_SQL_Running"); // Slave_SQL_Running
-            if ((!"0".equals(errno)) || (!"Yes".equalsIgnoreCase(slaveIORunning))
-                    || (!"Yes".equalsIgnoreCase(slaveSQLRunning))) {
-                logger.warn("Ignoring failed slave: " + mysqlConnection.getConnector().getAddress() + ", Last_Errno = "
-                        + errno + ", Slave_IO_Running = " + slaveIORunning + ", Slave_SQL_Running = "
-                        + slaveSQLRunning);
-                return null;
-            }
-
-            String masterHost = maps.get("Master_Host");
-            String masterPort = maps.get("Master_Port");
-            String binlog = maps.get("Master_Log_File");
-            String position = maps.get("Exec_Master_Log_Pos");
-            return new SlaveEntryPosition(binlog, Long.valueOf(position), masterHost, masterPort);
-        } catch (IOException e) {
-            logger.error("find slave position error", e);
-        }
-
-        return null;
-    }
+//    /**
+//     * 查询当前的slave视图的binlog位置
+//     */
+//    @SuppressWarnings("unused")
+//    private SlaveEntryPosition findSlavePosition(DamengConnection damengConnection) {
+//        try {
+//            ResultSetPacket packet = damengConnection.query("show slave status");
+//            List<FieldPacket> names = packet.getFieldDescriptors();
+//            List<String> fields = packet.getFieldValues();
+//            if (CollectionUtils.isEmpty(fields)) {
+//                return null;
+//            }
+//
+//            int i = 0;
+//            Map<String, String> maps = new HashMap<>(names.size(), 1f);
+//            for (FieldPacket name : names) {
+//                maps.put(name.getName(), fields.get(i));
+//                i++;
+//            }
+//
+//            String errno = maps.get("Last_Errno");
+//            String slaveIORunning = maps.get("Slave_IO_Running"); // Slave_SQL_Running
+//            String slaveSQLRunning = maps.get("Slave_SQL_Running"); // Slave_SQL_Running
+//            if ((!"0".equals(errno)) || (!"Yes".equalsIgnoreCase(slaveIORunning))
+//                    || (!"Yes".equalsIgnoreCase(slaveSQLRunning))) {
+//                logger.warn("Ignoring failed slave: " + damengConnection.getConnector().getAddress() + ", Last_Errno = "
+//                        + errno + ", Slave_IO_Running = " + slaveIORunning + ", Slave_SQL_Running = "
+//                        + slaveSQLRunning);
+//                return null;
+//            }
+//
+//            String masterHost = maps.get("Master_Host");
+//            String masterPort = maps.get("Master_Port");
+//            String binlog = maps.get("Master_Log_File");
+//            String position = maps.get("Exec_Master_Log_Pos");
+//            return new SlaveEntryPosition(binlog, Long.valueOf(position), masterHost, masterPort);
+//        } catch (IOException e) {
+//            logger.error("find slave position error", e);
+//        }
+//
+//        return null;
+//    }
 
     /**
      * 根据给定的时间戳，在指定的binlog中找到最接近于该时间戳(必须是小于时间戳)的一个事务起始位置。
      * 针对最后一个binlog会给定endPosition，避免无尽的查询
      */
-    private EntryPosition findAsPerTimestampInSpecificLogFile(DamengConnection mysqlConnection,
+    private EntryPosition findAsPerTimestampInSpecificLogFile(DamengConnection damengConnection,
                                                               final Long startTimestamp,
                                                               final EntryPosition endPosition,
                                                               final String searchBinlogFile,
@@ -773,9 +684,9 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
 
         final LogPosition logPosition = new LogPosition();
         try {
-            mysqlConnection.reconnect();
+            damengConnection.reconnect();
             // 开始遍历文件
-            mysqlConnection.seek(searchBinlogFile, 4L, endPosition.getGtid(), new SinkFunction<LogEvent>() {
+            damengConnection.seek(searchBinlogFile, 4L, endPosition.getGtid(), new SinkFunction<LogEvent>() {
 
                 private LogPosition lastPosition;
 
@@ -868,19 +779,6 @@ public class DamengEventParser extends AbstractDamengEventParser implements Cana
         }
 
         super.processDumpError(e);
-    }
-
-    public void setSupportBinlogFormats(String formatStrs) {
-        String[] formats = StringUtils.split(formatStrs, ',');
-        if (formats != null) {
-            BinlogFormat[] supportBinlogFormats = new BinlogFormat[formats.length];
-            int i = 0;
-            for (String format : formats) {
-                supportBinlogFormats[i++] = BinlogFormat.valuesOf(format);
-            }
-
-            this.supportBinlogFormats = supportBinlogFormats;
-        }
     }
 
     // ===================== setter / getter ========================

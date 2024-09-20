@@ -412,12 +412,12 @@ public class DamengMultiStageCoprocessor extends AbstractCanalLifeCycle implemen
                     }
                 }
 
-                LogEvent logEvent = event.getEvent();
-                if (connection instanceof DamengConnection && logEvent.getSemival() == 1) {
-                    // semi ack回报
-                    ((DamengConnection) connection).sendSemiAck(logEvent.getHeader().getLogFileName(),
-                            logEvent.getHeader().getLogPos());
-                }
+//                LogEvent logEvent = event.getEvent();
+//                if (connection instanceof DamengConnection && logEvent.getSemival() == 1) {
+//                    // semi ack回报
+//                    ((DamengConnection) connection).sendSemiAck(logEvent.getHeader().getLogFileName(),
+//                            logEvent.getHeader().getLogPos());
+//                }
 
                 // clear for gc
                 event.setBuffer(null);
