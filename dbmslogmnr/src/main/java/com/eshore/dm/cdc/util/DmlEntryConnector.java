@@ -1,0 +1,100 @@
+package com.eshore.dm.cdc.util;
+
+import com.eshore.dm.cdc.bean.DmlEntry;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.tuple.Pair;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.List;
+
+/**
+ * @Author: zhuzhibin
+ * @Email:
+ * @Date: 2025/6/3 18:03
+ * @Description: TODO
+ */
+
+@Slf4j
+public class DmlEntryConnector {
+    private final Connection connection;
+
+    public DmlEntryConnector(Connection connection) {
+        this.connection = connection;
+    }
+
+    public void saveDmlEntries(List<DmlEntry> dmlEntries) throws SQLException {
+        Statement statement = this.connection.createStatement();
+        String sql = null;
+        for (DmlEntry dmlEntry : dmlEntries) {
+            log.info("{}", dmlEntry);
+            if (dmlEntry.getDmlType().equalsIgnoreCase("insert")) {
+                sql = this.getInsertSql(dmlEntry);
+            } else if (dmlEntry.getDmlType().equalsIgnoreCase("delete")) {
+                sql = this.getDeleteSql(dmlEntry);
+            } else if (dmlEntry.getDmlType().equalsIgnoreCase("update")) {
+                sql = this.getUpdateSql(dmlEntry);
+            }
+            log.info(sql);
+            statement.addBatch(sql);
+        }
+        statement.executeBatch();
+    }
+
+    private String getInsertSql(DmlEntry dmlEntry) {
+        StringBuilder insertBuilder = new StringBuilder();
+        StringBuilder columns = new StringBuilder();
+        StringBuilder values = new StringBuilder();
+        for (Pair<String, Object> columnValue : dmlEntry.getColumnValues()) {
+            columns.append(columnValue.getKey()).append(",");
+            values.append(columnValue.getValue()).append(",");
+        }
+        int len = columns.length();
+        columns.delete(len - 1, len);
+        len = values.length();
+        values.delete(len - 1, len);
+
+        insertBuilder.append("insert into ").append(dmlEntry.getSchemaName()).append(".").append(dmlEntry.getTableName())
+                .append(" (").append(columns).append(") values (").append(values).append(")");
+        return insertBuilder.toString();
+    }
+
+    private String getDeleteSql(DmlEntry dmlEntry) {
+        StringBuilder deleteBuilder = new StringBuilder();
+        StringBuilder whereBuilder = new StringBuilder();
+
+        for (Pair<String, Object> primaryKeyValues : dmlEntry.getPrimaryKeyValues()) {
+            whereBuilder.append(primaryKeyValues.getKey()).append(" = ").append(primaryKeyValues.getValue()).append(" and ");
+        }
+        int len = whereBuilder.length();
+        whereBuilder.delete(len - 4, len);
+
+        deleteBuilder.append("delete from ").append(dmlEntry.getSchemaName()).append(".").append(dmlEntry.getTableName())
+                .append(" where ").append(whereBuilder);
+        return deleteBuilder.toString();
+    }
+
+    private String getUpdateSql(DmlEntry dmlEntry) {
+        StringBuilder updateBuilder = new StringBuilder();
+        StringBuilder whereBuilder = new StringBuilder();
+        StringBuilder setBuilder = new StringBuilder();
+
+        for (Pair<String, Object> columnValue : dmlEntry.getColumnValues()) {
+            setBuilder.append(columnValue.getKey()).append(" = ").append(columnValue.getValue()).append(",");
+        }
+        int len = setBuilder.length();
+        setBuilder.delete(len - 1, len);
+
+        for (Pair<String, Object> primaryKeyValues : dmlEntry.getPrimaryKeyValues()) {
+            whereBuilder.append(primaryKeyValues.getKey()).append(" = ").append(primaryKeyValues.getValue()).append(" and ");
+        }
+        len = whereBuilder.length();
+        whereBuilder.delete(len - 4, len);
+
+        updateBuilder.append("update ").append(dmlEntry.getSchemaName()).append(".").append(dmlEntry.getTableName())
+                .append(" set ").append(setBuilder)
+                .append(" where ").append(whereBuilder);
+        return updateBuilder.toString();
+    }
+}
