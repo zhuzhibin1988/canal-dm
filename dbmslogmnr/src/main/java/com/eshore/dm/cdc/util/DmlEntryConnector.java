@@ -22,13 +22,17 @@ public class DmlEntryConnector {
 
     public DmlEntryConnector(Connection connection) {
         this.connection = connection;
+        try {
+            this.connection.setAutoCommit(false);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 
     public void saveDmlEntries(List<DmlEntry> dmlEntries) throws SQLException {
         Statement statement = this.connection.createStatement();
         String sql = null;
         for (DmlEntry dmlEntry : dmlEntries) {
-            log.info("{}", dmlEntry);
             if (dmlEntry.getDmlType().equalsIgnoreCase("insert")) {
                 sql = this.getInsertSql(dmlEntry);
             } else if (dmlEntry.getDmlType().equalsIgnoreCase("delete")) {
@@ -36,10 +40,10 @@ public class DmlEntryConnector {
             } else if (dmlEntry.getDmlType().equalsIgnoreCase("update")) {
                 sql = this.getUpdateSql(dmlEntry);
             }
-            log.info(sql);
-            statement.addBatch(sql);
+//            log.info(sql);
+            statement.execute(sql);
         }
-        statement.executeBatch();
+        this.connection.commit();
     }
 
     private String getInsertSql(DmlEntry dmlEntry) {

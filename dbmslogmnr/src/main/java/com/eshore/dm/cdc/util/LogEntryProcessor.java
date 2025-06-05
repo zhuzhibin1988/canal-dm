@@ -1,7 +1,6 @@
 package com.eshore.dm.cdc.util;
 
 import com.alibaba.druid.sql.ast.SQLExpr;
-import com.alibaba.druid.sql.ast.SQLObject;
 import com.alibaba.druid.sql.ast.expr.SQLBinaryOpExpr;
 import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
 import com.alibaba.druid.sql.ast.statement.*;
@@ -15,7 +14,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 /**
  * @Author: zhuzhibin
@@ -62,7 +60,7 @@ public final class LogEntryProcessor {
         }
 
         DmlEntry dmlEntry = DmlEntry.builder()
-                .schemaName("\"hz_dw\"")
+                .schemaName("\"hz2_dw\"")
                 .tableName(statement.getTableName().getSimpleName())
                 .dmlType("INSERT")
                 .primaryKeys(Collections.emptyList())
@@ -82,7 +80,7 @@ public final class LogEntryProcessor {
         this.pkAst2List(where, primaryKeyValues);
 
         DmlEntry dmlEntry = DmlEntry.builder()
-                .schemaName("\"hz_dw\"")
+                .schemaName("\"hz2_dw\"")
                 .tableName(statement.getTableName().getSimpleName())
                 .dmlType("DELETE")
                 .primaryKeyValues(primaryKeyValues)
@@ -105,7 +103,7 @@ public final class LogEntryProcessor {
         this.pkAst2List(where, primaryKeyValues);
 
         DmlEntry dmlEntry = DmlEntry.builder()
-                .schemaName("\"hz_dw\"")
+                .schemaName("\"hz2_dw\"")
                 .tableName(statement.getTableName().getSimpleName())
                 .dmlType("UPDATE")
                 .columnValues(columnValues)

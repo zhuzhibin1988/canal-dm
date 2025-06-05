@@ -41,7 +41,8 @@ public class DmCdcServer {
     public DmCdcServer() {
         this.logEntryProcessor = new LogEntryProcessor();
         this.srcDmDatasource = new DmDatasource("jdbc:dm://192.168.199.201:5236/userUnicode=true&characterEncoding=utf8", "SYSDBA", "SYSDBA");
-        this.destDmDatasource = new DmDatasource("jdbc:dm://192.168.137.1:5236/userUnicode=true&characterEncoding=utf8", "SYSDBA", "SYSDBA");
+//        this.destDmDatasource = new DmDatasource("jdbc:dm://192.168.137.1:5236/userUnicode=true&characterEncoding=utf8", "SYSDBA", "SYSDBA");
+        this.destDmDatasource = new DmDatasource("jdbc:dm://192.168.199.201:5236/userUnicode=true&characterEncoding=utf8", "SYSDBA", "SYSDBA");
     }
 
     public void saveArchiveFileMetadata(ArchiveMetadata archiveMetadata) {
@@ -139,8 +140,9 @@ public class DmCdcServer {
                 if (logEntries.isEmpty() && archiveFile.getStatus().equalsIgnoreCase("inactive")) {
                     isArchiveFileEnd = true;
                 }
+                Thread.sleep(1000);
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
