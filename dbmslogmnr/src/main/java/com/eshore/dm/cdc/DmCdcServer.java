@@ -164,7 +164,7 @@ public class DmCdcServer {
                     stopWatch.start();
                     if (!logEntries.isEmpty()) {
                         dmlEntries = logEntries.stream().map(logEntry -> {
-//                                log.info("{}====={}", logEntry.getScn(), logEntry.getSqlRedo());
+                            log.info("={}={}=", logEntry.getScn(), logEntry.getOperation());
                             return this.logEntryProcessor.process(logEntry, this.columnsTypeCache.get(logEntry.getSegOwner() + '.' + logEntry.getTableName()));
                         }).collect(Collectors.toList());
                         currentScn = logEntries.get(logEntries.size() - 1).getEndScn(); //commit的位置

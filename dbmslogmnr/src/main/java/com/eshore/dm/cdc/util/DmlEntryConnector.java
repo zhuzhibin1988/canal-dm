@@ -3,9 +3,9 @@ package com.eshore.dm.cdc.util;
 import com.eshore.dm.cdc.bean.ColumnValue;
 import com.eshore.dm.cdc.bean.DmlEntry;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.tuple.Pair;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
@@ -31,7 +31,6 @@ public class DmlEntryConnector {
     }
 
     public void saveDmlEntries(List<DmlEntry> dmlEntries) throws SQLException {
-        Statement statement = this.connection.createStatement();
         String sql = null;
         for (DmlEntry dmlEntry : dmlEntries) {
             if (dmlEntry.getDmlType().equalsIgnoreCase("insert")) {
@@ -41,10 +40,12 @@ public class DmlEntryConnector {
             } else if (dmlEntry.getDmlType().equalsIgnoreCase("update")) {
                 sql = this.getUpdateSql(dmlEntry);
             }
-            log.info(sql);
-            // statement.execute(sql);
+//            log.info(sql);
+            PreparedStatement pstmt = this.connection.prepareStatement(sql);
+            pstmt.execute(sql);
+            pstmt.close();
         }
-        // this.connection.commit();
+        this.connection.commit();
     }
 
     private String getInsertSql(DmlEntry dmlEntry) {

@@ -8,7 +8,6 @@ import com.alibaba.druid.sql.parser.SQLStatementParser;
 import com.eshore.dm.cdc.bean.ColumnValue;
 import com.eshore.dm.cdc.bean.DmlEntry;
 import com.eshore.dm.cdc.bean.LogEntry;
-import org.apache.commons.lang3.tuple.Pair;
 
 import java.sql.Types;
 import java.util.ArrayList;
