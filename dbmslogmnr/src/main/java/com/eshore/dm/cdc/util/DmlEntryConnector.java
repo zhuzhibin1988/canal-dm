@@ -1,5 +1,6 @@
 package com.eshore.dm.cdc.util;
 
+import com.eshore.dm.cdc.bean.ColumnValue;
 import com.eshore.dm.cdc.bean.DmlEntry;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
@@ -40,19 +41,19 @@ public class DmlEntryConnector {
             } else if (dmlEntry.getDmlType().equalsIgnoreCase("update")) {
                 sql = this.getUpdateSql(dmlEntry);
             }
-//            log.info(sql);
-            statement.execute(sql);
+            log.info(sql);
+            // statement.execute(sql);
         }
-        this.connection.commit();
+        // this.connection.commit();
     }
 
     private String getInsertSql(DmlEntry dmlEntry) {
         StringBuilder insertBuilder = new StringBuilder();
         StringBuilder columns = new StringBuilder();
         StringBuilder values = new StringBuilder();
-        for (Pair<String, Object> columnValue : dmlEntry.getColumnValues()) {
-            columns.append(columnValue.getKey()).append(",");
-            values.append(columnValue.getValue()).append(",");
+        for (ColumnValue columnValue : dmlEntry.getColumnValues()) {
+            columns.append(columnValue.getColumnName()).append(",");
+            values.append(columnValue.getColumnValue()).append(",");
         }
         int len = columns.length();
         columns.delete(len - 1, len);
@@ -68,8 +69,8 @@ public class DmlEntryConnector {
         StringBuilder deleteBuilder = new StringBuilder();
         StringBuilder whereBuilder = new StringBuilder();
 
-        for (Pair<String, Object> primaryKeyValues : dmlEntry.getPrimaryKeyValues()) {
-            whereBuilder.append(primaryKeyValues.getKey()).append(" = ").append(primaryKeyValues.getValue()).append(" and ");
+        for (ColumnValue primaryKeyValues : dmlEntry.getPrimaryKeyValues()) {
+            whereBuilder.append(primaryKeyValues.getColumnName()).append(" = ").append(primaryKeyValues.getColumnName()).append(" and ");
         }
         int len = whereBuilder.length();
         whereBuilder.delete(len - 4, len);
@@ -84,14 +85,14 @@ public class DmlEntryConnector {
         StringBuilder whereBuilder = new StringBuilder();
         StringBuilder setBuilder = new StringBuilder();
 
-        for (Pair<String, Object> columnValue : dmlEntry.getColumnValues()) {
-            setBuilder.append(columnValue.getKey()).append(" = ").append(columnValue.getValue()).append(",");
+        for (ColumnValue columnValue : dmlEntry.getColumnValues()) {
+            setBuilder.append(columnValue.getColumnName()).append(" = ").append(columnValue.getColumnValue()).append(",");
         }
         int len = setBuilder.length();
         setBuilder.delete(len - 1, len);
 
-        for (Pair<String, Object> primaryKeyValues : dmlEntry.getPrimaryKeyValues()) {
-            whereBuilder.append(primaryKeyValues.getKey()).append(" = ").append(primaryKeyValues.getValue()).append(" and ");
+        for (ColumnValue primaryKeyValues : dmlEntry.getPrimaryKeyValues()) {
+            whereBuilder.append(primaryKeyValues.getColumnName()).append(" = ").append(primaryKeyValues.getColumnValue()).append(" and ");
         }
         len = whereBuilder.length();
         whereBuilder.delete(len - 4, len);

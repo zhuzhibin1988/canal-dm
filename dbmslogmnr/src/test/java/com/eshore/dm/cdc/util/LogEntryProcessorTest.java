@@ -4,15 +4,14 @@ import com.alibaba.druid.DbType;
 import com.alibaba.druid.sql.ast.SQLExpr;
 import com.alibaba.druid.sql.ast.statement.SQLInsertStatement;
 import com.alibaba.druid.sql.parser.SQLStatementParser;
+import com.eshore.dm.cdc.bean.ColumnValue;
 import com.eshore.dm.cdc.bean.DmlEntry;
 import com.eshore.dm.cdc.bean.LogEntry;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 /**
  * @Author: zhuzhibin
@@ -23,10 +22,12 @@ import java.util.List;
 
 public class LogEntryProcessorTest {
     private LogEntryProcessor logEntryProcessor;
+    private Map<String, Integer> typesMap;
 
     @Before
     public void setup() {
         this.logEntryProcessor = new LogEntryProcessor();
+        this.typesMap = new HashMap<>();
     }
 
     @Test
@@ -36,14 +37,16 @@ public class LogEntryProcessorTest {
                 "\"REQUEST_DATA\", \"RESPONSE_DATA\") VALUES (1089790124317466624, 1881975454032539651, 'wb_upload_file', 'com.eshore.web.controller.UploadDocWebController', " +
                 "'uploadMe', DATE'2025-06-03', '440784199504220612', '_24332000000446194601 (1).pdf', '{\"code\":\"0000\",\"docid\":\"445096a9-4051-11f0-826a-60da833fd9c3\"," +
                 "\"downloadUrl\":\"https://ap.gzonline.gov.cn/WebDiskServerDemo/doc?doc_id=445096a9-4051-11f0-826a-60da833fd9c3\",\"msg\":\"OK\",\"uuid\":\"445096a9-4051-11f0-826a-60da833fd9c3\"}')";
-        sql = logEntryProcessor.formatSql(sql);
         SQLStatementParser sqlStatementParser = new SQLStatementParser(sql, DbType.dm);
         SQLInsertStatement statement = (SQLInsertStatement) sqlStatementParser.parseInsert();
         List<SQLExpr> columns = statement.getColumns();
         List<SQLExpr> values = statement.getValues().getValues();
-        List<Pair<String, Object>> columnValues = new ArrayList<>();
+        List<ColumnValue> columnValues = new ArrayList<>();
         for (int i = 0; i < columns.size(); i++) {
-            columnValues.add(Pair.of(columns.get(i).toString(), values.get(i)));
+            String name = columns.get(i).toString();
+            Integer type = typesMap.get(name);
+            Object value = logEntryProcessor.cleanTimeLiteral(values.get(i), type);
+            columnValues.add(ColumnValue.builder().columnName(name).columnValue(value).type(type).build());
         }
         DmlEntry dmlEntry = DmlEntry.builder()
                 .tableName(statement.getTableName().getSimpleName())
@@ -62,7 +65,7 @@ public class LogEntryProcessorTest {
                         "'2024-01-26 09:07:45'")
                 .operationCode(2)
                 .build();
-        DmlEntry dmlEntry = logEntryProcessor.process(logEntry);
+        DmlEntry dmlEntry = logEntryProcessor.process(logEntry, typesMap);
         System.out.println(dmlEntry);
     }
 }

@@ -8,6 +8,7 @@ import lombok.Data;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 日志挖掘工具
@@ -181,6 +182,7 @@ public class LogMnr {
             filterSql = " and (" + filterSql + ")";
         }
         sql += filterSql + " and scn > ? order by scn, ssn";
+
         PreparedStatement ps = this.connection.prepareStatement(sql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
         ps.setFetchSize(size);
         ps.setLong(1, beginScn);
@@ -199,16 +201,10 @@ public class LogMnr {
                         .startScn(rs.getLong("start_scn"))
                         .endScn(rs.getLong("commit_scn"))
                         .build();
-                if (logEntry.getCsf() == 1) {
-                    if (preLogEntry != null && preLogEntry.getScn() == logEntry.getScn()) {
-                        logEntry.setSqlRedo(preLogEntry.getSqlRedo() + logEntry.getSqlRedo());
-                    }
-                } else {
-                    if (logEntry.getCsf() == 0) {
-                        if (preLogEntry != null && preLogEntry.getScn() == logEntry.getScn()) {
-                            logEntry.setSqlRedo(preLogEntry.getSqlRedo() + logEntry.getSqlRedo());
-                        }
-                    }
+                if (preLogEntry != null && preLogEntry.getScn() == logEntry.getScn()) {
+                    logEntry.setSqlRedo(preLogEntry.getSqlRedo() + logEntry.getSqlRedo());
+                }
+                if (logEntry.getCsf() == 0) {
                     logEntry.setSqlRedo(StringUtils.hex2String(logEntry.getSqlRedo()));
                     logEntries.add(logEntry);
                 }

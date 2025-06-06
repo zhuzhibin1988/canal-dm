@@ -5,13 +5,16 @@ import com.alibaba.druid.sql.ast.expr.SQLBinaryOpExpr;
 import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
 import com.alibaba.druid.sql.ast.statement.*;
 import com.alibaba.druid.sql.parser.SQLStatementParser;
+import com.eshore.dm.cdc.bean.ColumnValue;
 import com.eshore.dm.cdc.bean.DmlEntry;
 import com.eshore.dm.cdc.bean.LogEntry;
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -35,28 +38,30 @@ public final class LogEntryProcessor {
         return object;
     }
 
-    public DmlEntry process(LogEntry logEntry) {
+    public DmlEntry process(LogEntry logEntry, Map<String, Integer> typesMap) {
         DmlEntry dmlEntry = null;
         int operationCode = logEntry.getOperationCode();
         if (operationCode == 1) {
-            dmlEntry = processInsert(logEntry.getSqlRedo());
+            dmlEntry = processInsert(logEntry.getSqlRedo(), typesMap);
         } else if (operationCode == 2) {
-            dmlEntry = processDelete(logEntry.getSqlRedo());
+            dmlEntry = processDelete(logEntry.getSqlRedo(), typesMap);
         } else if (operationCode == 3) {
-            dmlEntry = processUpdate(logEntry.getSqlRedo());
+            dmlEntry = processUpdate(logEntry.getSqlRedo(), typesMap);
         }
         return dmlEntry;
     }
 
-    private DmlEntry processInsert(String insertSql) {
-        insertSql = formatSql(insertSql);
+    private DmlEntry processInsert(String insertSql, Map<String, Integer> typesMap) {
         SQLStatementParser sqlStatementParser = new SQLStatementParser(insertSql);
         SQLInsertStatement statement = (SQLInsertStatement) sqlStatementParser.parseInsert();
         List<SQLExpr> columns = statement.getColumns();
         List<SQLExpr> values = statement.getValues().getValues();
-        List<Pair<String, Object>> columnValues = new ArrayList<>();
+        List<ColumnValue> columnValues = new ArrayList<>();
         for (int i = 0; i < columns.size(); i++) {
-            columnValues.add(Pair.of(columns.get(i).toString(), this.setClobValue(values.get(i))));
+            String name = StringUtils.cleanColumn(columns.get(i).toString());
+            Integer type = typesMap.get(name);
+            Object value = cleanTimeLiteral(values.get(i), type);
+            columnValues.add(ColumnValue.builder().columnName(name).columnValue(value).type(type).build());
         }
 
         DmlEntry dmlEntry = DmlEntry.builder()
@@ -70,14 +75,13 @@ public final class LogEntryProcessor {
         return dmlEntry;
     }
 
-    private DmlEntry processDelete(String deleteSql) {
-        deleteSql = formatSql(deleteSql);
+    private DmlEntry processDelete(String deleteSql, Map<String, Integer> typesMap) {
         SQLStatementParser sqlStatementParser = new SQLStatementParser(deleteSql);
         SQLDeleteStatement statement = sqlStatementParser.parseDeleteStatement();
 
         SQLExpr where = statement.getWhere();
-        List<Pair<String, Object>> primaryKeyValues = new ArrayList<>();
-        this.pkAst2List(where, primaryKeyValues);
+        List<ColumnValue> primaryKeyValues = new ArrayList<>();
+        this.pkAst2List(where, primaryKeyValues, typesMap);
 
         DmlEntry dmlEntry = DmlEntry.builder()
                 .schemaName("\"hz2_dw\"")
@@ -89,18 +93,20 @@ public final class LogEntryProcessor {
         return dmlEntry;
     }
 
-    private DmlEntry processUpdate(String updateSql) {
-        updateSql = formatSql(updateSql);
+    private DmlEntry processUpdate(String updateSql, Map<String, Integer> typesMap) {
         SQLStatementParser sqlStatementParser = new SQLStatementParser(updateSql);
         SQLUpdateStatement statement = sqlStatementParser.parseUpdateStatement();
         List<SQLUpdateSetItem> setItems = statement.getItems();
-        List<Pair<String, Object>> columnValues = new ArrayList<>();
+        List<ColumnValue> columnValues = new ArrayList<>();
         for (int i = 0; i < setItems.size(); i++) {
-            columnValues.add(Pair.of(setItems.get(i).getColumn().toString(), setItems.get(i).getValue()));
+            String name = StringUtils.cleanColumn(setItems.get(i).getColumn().toString());
+            Integer type = typesMap.get(name);
+            Object value = cleanTimeLiteral(setItems.get(i).getValue(), type);
+            columnValues.add(ColumnValue.builder().columnName(name).columnValue(value).type(type).build());
         }
         SQLExpr where = statement.getWhere();
-        List<Pair<String, Object>> primaryKeyValues = new ArrayList<>();
-        this.pkAst2List(where, primaryKeyValues);
+        List<ColumnValue> primaryKeyValues = new ArrayList<>();
+        this.pkAst2List(where, primaryKeyValues, typesMap);
 
         DmlEntry dmlEntry = DmlEntry.builder()
                 .schemaName("\"hz2_dw\"")
@@ -113,26 +119,33 @@ public final class LogEntryProcessor {
         return dmlEntry;
     }
 
-    String formatSql(String sql) {
-        Matcher matcher = DATE_LITERAL_PATTER.matcher(sql);
-        // 替换匹配部分为只保留单引号和时间内容
+    String cleanTimeLiteral(Object columnValue, Integer type) {
         StringBuffer result = new StringBuffer();
-        while (matcher.find()) {
-            String timeValue = matcher.group(1); // 捕获时间字符串部分
-            matcher.appendReplacement(result, timeValue); // 只保留时间值（包含单引号）
+        if (type == Types.DATE || type == Types.TIMESTAMP || type == Types.TIME) {
+            Matcher matcher = DATE_LITERAL_PATTER.matcher(columnValue.toString());
+            // 替换匹配部分为只保留单引号和时间内容
+            while (matcher.find()) {
+                String timeValue = matcher.group(1); // 捕获时间字符串部分
+                matcher.appendReplacement(result, timeValue); // 只保留时间值（包含单引号）
+            }
+            matcher.appendTail(result);
+            return result.toString();
+        } else {
+            return columnValue.toString();
         }
-        matcher.appendTail(result);
-        return result.toString();
     }
 
-    private void pkAst2List(SQLExpr sqlExpr, List<Pair<String, Object>> pkList) {
+    private void pkAst2List(SQLExpr sqlExpr, List<ColumnValue> pkList, Map<String, Integer> typesMap) {
         if (sqlExpr instanceof SQLBinaryOpExpr) {
             SQLBinaryOpExpr sqlBinaryOpExpr = (SQLBinaryOpExpr) sqlExpr;
             if (sqlBinaryOpExpr.getLeft() instanceof SQLIdentifierExpr) {
-                pkList.add(Pair.of(sqlBinaryOpExpr.getLeft().toString(), sqlBinaryOpExpr.getRight()));
+                String name = StringUtils.cleanColumn(sqlBinaryOpExpr.getLeft().toString());
+                Integer type = typesMap.get(name);
+                Object value = cleanTimeLiteral(sqlBinaryOpExpr.getRight(), type);
+                pkList.add(ColumnValue.builder().columnName(name).columnValue(value).type(type).build());
             } else {
-                pkAst2List(sqlBinaryOpExpr.getLeft(), pkList);
-                pkAst2List(sqlBinaryOpExpr.getRight(), pkList);
+                pkAst2List(sqlBinaryOpExpr.getLeft(), pkList, typesMap);
+                pkAst2List(sqlBinaryOpExpr.getRight(), pkList, typesMap);
             }
         }
     }

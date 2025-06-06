@@ -19,7 +19,7 @@ public class DmlEntry {
     private String tableName;
     private String dmlType;
     private List<String> primaryKeys;
-    private List<Pair<String, Object>> primaryKeyValues;
-    private List<Pair<String, Object>> columnValues;
+    private List<ColumnValue> primaryKeyValues;
+    private List<ColumnValue> columnValues;
     private String dml;
 }

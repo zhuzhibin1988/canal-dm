@@ -11,14 +11,15 @@ import com.eshore.dm.cdc.util.LogEntryProcessor;
 import com.eshore.dm.cdc.util.LogMnr;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.time.StopWatch;
 
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @Author: zhuzhibin
@@ -32,17 +33,48 @@ public class DmCdcServer {
     public final static String ROOT = "./";
     public final static int NEW_START_SCN = -1;
 
+    private LogMnr.FetchFilter[] fetchFilters = new LogMnr.FetchFilter[]{
+            LogMnr.FetchFilter.builder().schema("hz_dw").tableName("t_dwd_wo_form_all").build()
+    };
+
     private LogEntryProcessor logEntryProcessor;
     private DmlEntryConnector dmlEntryConnector;
     private LogMnr logMnr;
     private DmDatasource srcDmDatasource;
     private DmDatasource destDmDatasource;
 
+    private Map<String, Map<String, Integer>> columnsTypeCache;
+
     public DmCdcServer() {
+        this.columnsTypeCache = new HashMap<>();
         this.logEntryProcessor = new LogEntryProcessor();
         this.srcDmDatasource = new DmDatasource("jdbc:dm://192.168.199.201:5236/userUnicode=true&characterEncoding=utf8", "SYSDBA", "SYSDBA");
 //        this.destDmDatasource = new DmDatasource("jdbc:dm://192.168.137.1:5236/userUnicode=true&characterEncoding=utf8", "SYSDBA", "SYSDBA");
         this.destDmDatasource = new DmDatasource("jdbc:dm://192.168.199.201:5236/userUnicode=true&characterEncoding=utf8", "SYSDBA", "SYSDBA");
+        getTargetColumnType(this.srcDmDatasource);
+    }
+
+    private void getTargetColumnType(DmDatasource dmDatasource) {
+        for (LogMnr.FetchFilter fetchFilter : fetchFilters) {
+            String cacheKey = fetchFilter.getSchema() + "." + fetchFilter.getTableName();
+            Map<String, Integer> columnType = this.columnsTypeCache.get(cacheKey);
+            if (columnType == null) {
+                columnType = new LinkedHashMap<>();
+                String sql = "SELECT * FROM " + cacheKey + " WHERE 1=2";
+                try {
+                    ResultSet rs = dmDatasource.getConnection().createStatement().executeQuery(sql);
+                    ResultSetMetaData rsd = rs.getMetaData();
+                    int columnCount = rsd.getColumnCount();
+                    for (int i = 1; i <= columnCount; i++) {
+                        int colType = rsd.getColumnType(i);
+                        columnType.put(rsd.getColumnName(i).toLowerCase(), colType);
+                    }
+                    this.columnsTypeCache.put(cacheKey, columnType);
+                } catch (SQLException e) {
+                    log.error(e.getMessage(), e);
+                }
+            }
+        }
     }
 
     public void saveArchiveFileMetadata(ArchiveMetadata archiveMetadata) {
@@ -81,12 +113,10 @@ public class DmCdcServer {
         List<DmlEntry> dmlEntries = new ArrayList<>();
         List<LogEntry> logEntries;
         ArchiveFile archiveFile;
-
+        StopWatch stopWatch = new StopWatch();
+        long duration;
         ArchiveMetadata archiveMetadata = loadArchiveFileMetadata();
         boolean isArchiveFileEnd = false;
-        LogMnr.FetchFilter[] fetchFilters = new LogMnr.FetchFilter[]{
-                LogMnr.FetchFilter.builder().schema("hz_dw").tableName("t_dwd_wo_form_all").build()
-        };
 
         try {
             this.dmlEntryConnector = new DmlEntryConnector(this.destDmDatasource.getConnection());
@@ -122,13 +152,28 @@ public class DmCdcServer {
                 }
                 do {
                     dmlEntries.clear();
+                    stopWatch.reset();
+                    stopWatch.start();
                     logEntries = this.logMnr.fetchLogEntries(500, currentScn, fetchFilters);
-                    for (LogEntry logEntry : logEntries) {
-                        currentScn = logEntry.getEndScn(); //commit的位置
-                        dmLEntry = this.logEntryProcessor.process(logEntry);
-                        dmlEntries.add(dmLEntry);
+                    duration = stopWatch.getTime();
+                    if (!logEntries.isEmpty()) {
+                        log.info("fetchLogEntries cost {} ms, {} ms/r", duration, duration / logEntries.size());
+                    }
+
+                    stopWatch.reset();
+                    stopWatch.start();
+                    if (!logEntries.isEmpty()) {
+                        dmlEntries = logEntries.stream().map(logEntry -> {
+//                                log.info("{}====={}", logEntry.getScn(), logEntry.getSqlRedo());
+                            return this.logEntryProcessor.process(logEntry, this.columnsTypeCache.get(logEntry.getSegOwner() + '.' + logEntry.getTableName()));
+                        }).collect(Collectors.toList());
+                        currentScn = logEntries.get(logEntries.size() - 1).getEndScn(); //commit的位置
                     }
                     this.dmlEntryConnector.saveDmlEntries(dmlEntries);
+                    duration = stopWatch.getTime();
+                    if (!dmlEntries.isEmpty()) {
+                        log.info("saveLogEntries cost {} ms, {} ms/r", duration, duration / dmlEntries.size());
+                    }
 
                     archiveMetadata.setArchiveFilePath(archiveFile.getPath());
                     archiveMetadata.setArchLSN(archiveFile.getArchLSN());
@@ -144,6 +189,8 @@ public class DmCdcServer {
             }
         } catch (Exception e) {
             e.printStackTrace();
+        } finally {
+            stopWatch.stop();
         }
     }
 
